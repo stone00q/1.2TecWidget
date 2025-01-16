@@ -3,7 +3,6 @@
 
 #include <QWidget>
 #include <QMessageBox>
-#include <QDebug>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -15,7 +14,6 @@
 #include <vtkFloatArray.h>
 #include <vtkIdList.h>
 #include <vtkCellType.h>
-#include <ctime>
 
 #include <vtkMultiBlockDataSet.h>
 #include <vtkInformation.h>
@@ -59,13 +57,10 @@
 #include <vtkGradientFilter.h>
 #include <vtkDoubleArray.h>
 
+#include <vtkOrientationMarkerWidget.h>
+#include <vtkAxesActor.h>
 #include <cctype>
 
-#include <vtkAutoInit.h>
-VTK_MODULE_INIT(vtkRenderingOpenGL2);
-VTK_MODULE_INIT(vtkInteractionStyle);
-VTK_MODULE_INIT(vtkRenderingContextOpenGL2);
-VTK_MODULE_INIT(vtkRenderingFreeType)
 class TecplotReader {
 public:
     TecplotReader(){}
@@ -518,6 +513,10 @@ private:
     std::map<std::string,vtkSmartPointer<vtkCutter> > m_cutterList;
     std::map<std::string,vtkSmartPointer<vtkMaskPoints> > m_streamTraceMaskPointsList;
     std::map<std::string,vtkSmartPointer<vtkStreamTracer> > m_streamTraceList;
+
+    vtkSmartPointer<vtkOrientationMarkerWidget> m_orientationMarker;
+    vtkSmartPointer<vtkAxesActor> m_axes;
+
     int m_varNum;
     int m_contourNum = 0;
     int m_sliceWidgetNum = 0;

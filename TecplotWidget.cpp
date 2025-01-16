@@ -1,5 +1,10 @@
 #include "TecplotWidget.h"
-#include<vtkPSphereSource.h>
+//#include<vtkPSphereSource.h>
+#include <vtkAutoInit.h>
+VTK_MODULE_INIT(vtkRenderingOpenGL2);
+VTK_MODULE_INIT(vtkInteractionStyle);
+//VTK_MODULE_INIT(vtkRenderingContextOpenGL2);
+VTK_MODULE_INIT(vtkRenderingFreeType)
 TecplotWidget::TecplotWidget(QWidget *parent)
     :QVTKOpenGLNativeWidget(parent)
 {
@@ -17,6 +22,21 @@ TecplotWidget::TecplotWidget(QWidget *parent)
     this->m_renderer->SetBackground(lightBlue.redF(), lightBlue.greenF(), lightBlue.blueF());
     //获取交互器
     this->m_qvtkInteractor=this->interactor();
+
+    //坐标
+    m_axes = vtkSmartPointer<vtkAxesActor>::New();
+    m_orientationMarker = vtkSmartPointer<vtkOrientationMarkerWidget>::New();
+
+    m_orientationMarker->SetOrientationMarker(m_axes);
+    m_orientationMarker->SetInteractor(m_renderWindow->GetInteractor());
+    // m_orientationMarker->SetViewport(0.0, 0.0, 0.3, 0.3);
+    m_orientationMarker->SetViewport(0.0, 0.0, 0.12, 0.4);
+    m_orientationMarker->SetEnabled(1);
+    m_orientationMarker->InteractiveOff();
+
+    m_renderer->SetBackground2(1.0, 1.0, 1.0); // 设置页面底部颜色值
+    m_renderer->SetBackground(0.529, 0.8078, 0.92157); // 设置页面顶部颜色值
+    m_renderer->SetGradientBackground(true); // 开启渐变色背景设置
 }
 TecplotWidget::~TecplotWidget()
 {
@@ -619,14 +639,14 @@ QString TecplotWidget::AddStreamTracer(QString derivedActor)
 
 
     //test propertylist
-    auto streamData =streamTracer->GetOutput()->GetPointData();
-    int tmp=streamData->GetNumberOfArrays();
-    qInfo()<<"streamData num of pointdata array"<<tmp;
-    qInfo()<<"array name:";
-    for(int i =0;i<tmp;i++)
-    {
-        qInfo()<<streamData->GetArrayName(i);
-    }
+//    auto streamData =streamTracer->GetOutput()->GetPointData();
+//    int tmp=streamData->GetNumberOfArrays();
+//    qInfo()<<"streamData num of pointdata array"<<tmp;
+//    qInfo()<<"array name:";
+//    for(int i =0;i<tmp;i++)
+//    {
+//        qInfo()<<streamData->GetArrayName(i);
+//    }
 
     //test z-fighting问题
     //streamlineActor->GetProperty()->SetLineWidth(3.0);

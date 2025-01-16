@@ -33,13 +33,13 @@ Widget::Widget(QWidget *parent)
        //m_tecplotWidget->SetColorMapOff("P2");
        // m_tecplotWidget->ActorVisibilityOff("P1");
        //m_tecplotWidget->ActorVisibilityOn("P1");
-       /***测试了等值线*
+       /***测试了等值线**/
 
        //提取x=0.03的面，做速度矢量映射
-       //m_tecplotWidget->AddContour("FLUID");
-       //m_tecplotWidget->SetContouredBy("Contour1","X");
-       //m_tecplotWidget->AddEntry("Contour1",0.03);
-       //m_tecplotWidget->SetColorMapOn("Contour1","Y");
+       m_tecplotWidget->AddContour("FLUID");
+       m_tecplotWidget->SetContouredBy("Contour1","X");
+       m_tecplotWidget->AddEntry("Contour1",0.03);
+       m_tecplotWidget->SetColorMapOn("Contour1","Y");
        //propList=m_tecplotWidget->GetPropertyList("Contour1");
        //qInfo()<<"add entry:get_contour1propertylist:";
        //qInfo()<<propList;
@@ -71,10 +71,10 @@ Widget::Widget(QWidget *parent)
        qInfo()<<m_tecplotWidget->EditEntry("Contour1",1,340);
        qInfo() <<m_tecplotWidget->RemoveEntry("Contour1",1);
        m_tecplotWidget->ActorVisibilityOn("Contour1");
-       m_tecplotWidget->SetColorMapOn("Contour1","T");*/
+       m_tecplotWidget->SetColorMapOn("Contour1","T");
 
 
-       /***测试涡结构**
+       /***测试涡结构**/
        this->m_tecplotWidget->CalculateQCriterion("FLUID");
        //propList = m_tecplotWidget->GetPropertyList("FLUID");
        //qInfo()<<propList;
@@ -89,9 +89,9 @@ Widget::Widget(QWidget *parent)
        m_tecplotWidget->ActorVisibilityOff("INLET");
        m_tecplotWidget->ActorVisibilityOff("HUB");
        m_tecplotWidget->ActorVisibilityOff("BLADE");
-       m_tecplotWidget->ActorVisibilityOff("SHR");*/
+       m_tecplotWidget->ActorVisibilityOff("SHR");
 
-       /***测试矢量图***
+       /***测试矢量图****/
        qInfo()<<m_tecplotWidget->AddGlyph("FLUID");
 
        m_tecplotWidget->ActorVisibilityOff("P1");
@@ -105,7 +105,7 @@ Widget::Widget(QWidget *parent)
        m_tecplotWidget->SetGlyphSourceTipRadius("Glyph1",0.01);
        m_tecplotWidget->SetGlyphPointsNumber("Glyph1",100);
        m_tecplotWidget->SetGlyphSourceScaleFactor("Glyph1",0.05);
-       m_tecplotWidget->ActorVisibilityOn("FLUID");*/
+       m_tecplotWidget->ActorVisibilityOn("FLUID");
 
 
        /***测试流场流线***/
