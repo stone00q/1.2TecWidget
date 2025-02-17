@@ -16,6 +16,7 @@ LIBS+=\
 vtkCommonComputationalGeometry-9.3d.lib\
 vtkCommonCore-9.3d.lib\
 vtkCommonDataModel-9.3d.lib\
+vtkCommonMath-9.3d.lib\
 vtkCommonExecutionModel-9.3d.lib\
 vtkFiltersCore-9.3d.lib\
 vtkFiltersGeneral-9.3d.lib\
@@ -38,6 +39,7 @@ LIBS+=\
 vtkCommonComputationalGeometry-9.3.lib\
 vtkCommonCore-9.3.lib\
 vtkCommonDataModel-9.3.lib\
+vtkCommonMath-9.3.lib\
 vtkCommonExecutionModel-9.3.lib\
 vtkFiltersCore-9.3.lib\
 vtkFiltersExtraction-9.3.lib\
