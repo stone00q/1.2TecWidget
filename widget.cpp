@@ -15,6 +15,9 @@ Widget::Widget(QWidget *parent)
        QVBoxLayout* layout = new QVBoxLayout(this);
        layout->addWidget(m_tecplotWidget);
        m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\Tur_Merge_Field_[2000].dat)");
+       //m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\f3.dat)");
+       //test_ctn_[10]
+       //m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\test_ctn_[20].dat)");
 //       /****测试渲染框颜色***/
 //       //m_tecplotWidget->SetBackgroundColor(QColor(173, 216, 230));
 //       //QColor tmp=m_tecplotWidget->GetBackgroundColor();
@@ -35,28 +38,44 @@ Widget::Widget(QWidget *parent)
 //       //m_tecplotWidget->ActorVisibilityOn("P1");
 //       /***测试了等值线**/
 
-       //提取x=0.03的面，做速度矢量映射
+       /***多个actor颜色映射***/
+       // 设置等值面参数和颜色映射
+       // 添加多个等值面Actor
+//       m_tecplotWidget->AddContour("FLUID"); // 生成Contour1
+//       m_tecplotWidget->AddContour("FLUID"); // 生成Contour2
+//       m_tecplotWidget->AddContour("FLUID"); // 生成Contour3
+//          for(int i = 0; i < 3; ++i) {
+//              QString contourName = QString("Contour%1").arg(i+1);
+//              m_tecplotWidget->SetContouredBy(contourName, "X");
+//              m_tecplotWidget->AddEntry(contourName, -0.03 + i*0.03); // 设置不同Z值位置
+//              m_tecplotWidget->SetColorMapOn(contourName, "X");
+//          }
+//       /****提取x=0.03的面，做速度矢量映射****/
 //       m_tecplotWidget->AddContour("FLUID");
-//       m_tecplotWidget->SetContouredBy("Contour1","X");
-//       m_tecplotWidget->AddEntry("Contour1",0.03);
-//       m_tecplotWidget->SetColorMapOn("Contour1","Y");
-//       //propList=m_tecplotWidget->GetPropertyList("Contour1");
-//       //qInfo()<<"add entry:get_contour1propertylist:";
+//       m_tecplotWidget->SetContouredBy("Contour1","Z");
+//       m_tecplotWidget->AddEntry("Contour1",-0.03);
+//       m_tecplotWidget->SetColorMapOn("Contour1","");
+       //propList=m_tecplotWidget->GetPropertyList("Contour1");
+       //qInfo()<<"add entry:get_contour1propertylist:";
 //       //qInfo()<<propList;
 //       m_tecplotWidget->ActorVisibilityOff("FLUID");
 //       m_tecplotWidget->ActorVisibilityOff("OUTLET");
 //       m_tecplotWidget->ActorVisibilityOff("P1");
-//       m_tecplotWidget->ActorVisibilityOff("P2");
+//       m_tecplotWidget->ActorVisibilityOn("P2");
+//       m_tecplotWidget->SetColorMapOn("P2", "p");
 //       m_tecplotWidget->ActorVisibilityOff("INLET");
-//       m_tecplotWidget->ActorVisibilityOff("HUB");
-//       m_tecplotWidget->ActorVisibilityOff("BLADE");
-//       m_tecplotWidget->ActorVisibilityOff("SHR");
+//       m_tecplotWidget->ActorVisibilityOff("HUB");//??
+//       m_tecplotWidget->ActorVisibilityOff("BLADE");//?
+//       m_tecplotWidget->ActorVisibilityOff("SHR");//?
 //       m_tecplotWidget->ActorVisibilityOff("Contour1");
 //       m_tecplotWidget->ActorVisibilityOff("Slice1");
-//       //m_tecplotWidget->AddGlyph("Contour1");
-//       //m_tecplotWidget->SetGlyphVector("Glyph1","velocity");
-//       //m_tecplotWidget->SetGlyphPointsNumber("Glyph1",10);
-//       //m_tecplotWidget->SetGlyphSourceScaleFactor("Glyph1",0.1);
+//       m_tecplotWidget->AddGlyph("Contour1");
+//       qInfo()<<m_tecplotWidget->GetPropertyList("HUB");
+
+//       m_tecplotWidget->SetGlyphActiveVector("Glyph1","velocity");
+//       m_tecplotWidget->SetSolidColor("Glyph1",QColor(1,0,0));
+//       m_tecplotWidget->SetGlyphPointsNumber("Glyph1",1000);
+//       m_tecplotWidget->SetGlyphSourceScaleFactor("Glyph1",0.5);
 //       qInfo()<<m_tecplotWidget->AddSliceWidget("FLUID");
 //       m_tecplotWidget->Slice("Slice1");
 //       qInfo()<<m_tecplotWidget->AddContour("Slice1");
@@ -75,39 +94,40 @@ Widget::Widget(QWidget *parent)
 
 
 //       /***测试涡结构**/
-//       this->m_tecplotWidget->CalculateQCriterion("FLUID");
-//       //propList = m_tecplotWidget->GetPropertyList("FLUID");
-//       //qInfo()<<propList;
-//       qInfo()<<m_tecplotWidget->AddContour("FLUID");
-//       double* bound = m_tecplotWidget->SetContouredBy("Contour1","QCriterion");
-//       m_tecplotWidget->SetColorMapOn("Contour1","QCriterion");
-//       qInfo()<<bound[0]<<bound[1];
-//       m_tecplotWidget->ActorVisibilityOff("FLUID");
-//       m_tecplotWidget->ActorVisibilityOff("OUTLET");
-//       m_tecplotWidget->ActorVisibilityOff("P1");
-//       m_tecplotWidget->ActorVisibilityOff("P2");
-//       m_tecplotWidget->ActorVisibilityOff("INLET");
-//       m_tecplotWidget->ActorVisibilityOff("HUB");
-//       m_tecplotWidget->ActorVisibilityOff("BLADE");
-//       m_tecplotWidget->ActorVisibilityOff("SHR");
-
-       /***测试矢量图****/
-       qInfo()<<m_tecplotWidget->AddGlyph("OUTLET");
-       QColor redColor(Qt::red);
+       this->m_tecplotWidget->CalculateQCriterion("FLUID");
+       //propList = m_tecplotWidget->GetPropertyList("FLUID");
+       //qInfo()<<propList;
+       qInfo()<<m_tecplotWidget->AddContour("FLUID");
+       double* bound = m_tecplotWidget->SetContouredBy("Contour1","QCriterion");
+       m_tecplotWidget->AddEntry("Contour1",500);
+       m_tecplotWidget->SetColorMapOn("Contour1","QCriterion");
+       qInfo()<<bound[0]<<bound[1];
+       m_tecplotWidget->ActorVisibilityOff("FLUID");
+       m_tecplotWidget->ActorVisibilityOff("OUTLET");
        m_tecplotWidget->ActorVisibilityOff("P1");
        m_tecplotWidget->ActorVisibilityOff("P2");
        m_tecplotWidget->ActorVisibilityOff("INLET");
        m_tecplotWidget->ActorVisibilityOff("HUB");
        m_tecplotWidget->ActorVisibilityOff("BLADE");
        m_tecplotWidget->ActorVisibilityOff("SHR");
-       m_tecplotWidget->ActorVisibilityOff("OUTLET");
-       m_tecplotWidget->ActorVisibilityOff("FLUID");
-       m_tecplotWidget->SetGlyphActiveVector("Glyph1","velocity");
-       m_tecplotWidget->SetGlyphSourceTipRadius("Glyph1",0.02);
-       m_tecplotWidget->SetGlyphSourceShaftRadius("Glyph1",0.005);
-       m_tecplotWidget->SetGlyphPointsNumber("Glyph1",200);
-       m_tecplotWidget->SetGlyphSourceScaleFactor("Glyph1",0.0001);
-       m_tecplotWidget->SetSolidColor("Glyph1",redColor);
+
+//       /***测试矢量图****/
+//       qInfo()<<m_tecplotWidget->AddGlyph("OUTLET");
+//       QColor redColor(Qt::red);
+//       m_tecplotWidget->ActorVisibilityOff("P1");
+//       m_tecplotWidget->ActorVisibilityOff("P2");
+//       m_tecplotWidget->ActorVisibilityOff("INLET");
+//       m_tecplotWidget->ActorVisibilityOff("HUB");
+//       m_tecplotWidget->ActorVisibilityOff("BLADE");
+//       m_tecplotWidget->ActorVisibilityOff("SHR");
+//       m_tecplotWidget->ActorVisibilityOff("OUTLET");
+//       m_tecplotWidget->ActorVisibilityOff("FLUID");
+//       m_tecplotWidget->SetGlyphActiveVector("Glyph1","velocity");
+//       m_tecplotWidget->SetGlyphSourceTipRadius("Glyph1",0.02);
+//       m_tecplotWidget->SetGlyphSourceShaftRadius("Glyph1",0.005);
+//       m_tecplotWidget->SetGlyphPointsNumber("Glyph1",200);
+//       m_tecplotWidget->SetGlyphSourceScaleFactor("Glyph1",0.0001);
+//       m_tecplotWidget->SetSolidColor("Glyph1",redColor);
        //m_tecplotWidget->ActorVisibilityOn("OUTLET");
 
 
@@ -135,6 +155,9 @@ Widget::Widget(QWidget *parent)
 //       //m_tecplotWidget->SetStreamTracerDiretion("StreamTracer1",0);
 //       //m_tecplotWidget->SetStreamTracerMaximumPropagation("StreamTracer1",10);
 //       //m_tecplotWidget->SetStreamTracerIntegrationStepUnit("StreamTracer1",2);
+
+       /**测试S1平行曲面**/
+       //m_tecplotWidget->testS1();
 }
 
 Widget::~Widget()

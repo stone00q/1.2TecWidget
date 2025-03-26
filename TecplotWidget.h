@@ -60,6 +60,7 @@
 #include <vtkOrientationMarkerWidget.h>
 #include <vtkAxesActor.h>
 #include <cctype>
+#include <vtkRemoveUnusedPoints.h>
 
 class TecplotReader {
 public:
@@ -96,7 +97,7 @@ private:
     //bool cutterStatus = false; //是否有新建过cutter
     int cutActorNum = 0; //有多少个默认名字的actor,只增不减，不重复命名
 };
-class ColorMap
+/*class ColorMap
 {
 public:
     ColorMap() {}
@@ -108,7 +109,7 @@ private:
     vtkActor* m_selectedActor;
     std::string m_objName;
     bool m_selectedStatus = false; //记录是否有设置过选中操作对象，没有就不能setsolidcolor
-};
+};*/
 class Contour
 {
  // 对一个contour进行新建、setinputdata、加入contourlist、actor列表和renderer，全都默认命名方式
@@ -259,7 +260,7 @@ public:
 
 
 
-    /****设置Actor颜色****/
+    /****设置Actor颜色、颜色映射****/
     /**
      * @brief SetSolidColor
      * @param QString actorName，需要进行颜色设置的actor名称
@@ -292,6 +293,11 @@ public:
      */
     bool SetColorMapOff(QString actorName);
 
+
+    /***颜色映射：指定色阶数量***/
+
+    /***颜色映射：指定色阶边界****/
+
     /****设置cut****/
     /**
      * @brief AddSliceWidget添加截面的交互器
@@ -307,7 +313,6 @@ public:
      * @details 根据交互器进行截面
      */
     bool Slice(QString sliceWidgetName);
-
     /**
      * @brief GetSliceOrigin
      * @param QString sliceWidgetName，截面交互器名称
@@ -486,6 +491,7 @@ public:
      * @details 步长单位The valid unit is now limited to only LENGTH_UNIT (1) and CELL_LENGTH_UNIT (2), EXCLUDING the previously-supported TIME_UNIT.
      */
     bool SetStreamTracerIntegrationStepUnit(QString streamTraceActor,int unit);
+
 private:
 
     //共享的
@@ -525,6 +531,15 @@ private:
     int m_streamTraceNum = 0;
 
     TecplotReader m_reader;
+
+    //颜色映射barchart色阶相关
+    std::vector<std::string> m_activeBars;  // 新增：维护激活的颜色条顺序
+    const int MAX_COLUMNS = 3;  // 最大允许列数（超过则收缩宽度）
+    const float HORIZONTAL_SPACING = 0.005f;  // 水平间距2%
+    const float MIN_BAR_WIDTH = 0.05f;       // 最小宽度12%
+    const float TITLE_FONT_SIZE = 8;         // 匹配图片比例
+    const float LABEL_FONT_SIZE = 8;
+    void UpdateAllScalarBarPositions();
 };
 
 #endif // TECPLOTWIDGET_H

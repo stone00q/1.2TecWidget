@@ -1,6 +1,7 @@
 #include "TecplotWidget.h"
 //#include<vtkPSphereSource.h>
 #include <vtkAutoInit.h>
+#include <vtkTextProperty.h>
 VTK_MODULE_INIT(vtkRenderingOpenGL2);
 VTK_MODULE_INIT(vtkInteractionStyle);
 //VTK_MODULE_INIT(vtkRenderingContextOpenGL2);
@@ -288,6 +289,15 @@ bool TecplotWidget::SetColorMapOn(QString actorName,QString propertyName)
         this->m_lutsList[objName] = lut;
         this->m_barsList[objName] = barActor;
         this->m_renderer->AddActor2D(barActor);
+
+        // 初始化颜色条样式，标题和颜色
+        barActor->SetTitle(propertyName.toStdString().c_str());
+        barActor->SetNumberOfLabels(10);
+        //barActor->SetLabelFormat("%.2e");  // 科学计数法显示
+
+        // 添加到激活列表并更新布局
+        m_activeBars.push_back(objName);
+        UpdateAllScalarBarPositions();
     }
     auto lut = m_lutsList[objName];
     auto barActor = m_barsList[objName];
@@ -311,25 +321,123 @@ bool TecplotWidget::SetColorMapOn(QString actorName,QString propertyName)
 
     mapper->ScalarVisibilityOn();
     barActor->VisibilityOn();
+    // 强制更新颜色条位置
+    UpdateAllScalarBarPositions();
     m_renderWindow->Render();
     return true;
 }
 bool TecplotWidget::SetColorMapOff(QString actorName)
 {
-    if(this->m_actorsList.count(actorName.toStdString())==0)
+    std::string objStdName = actorName.toStdString();
+    if(this->m_actorsList.count(objStdName)==0)
         return false;
-    vtkActor* objActor = this->m_actorsList[actorName.toStdString()];
+    vtkActor* objActor = this->m_actorsList[objStdName];
 
-    if(this->m_barsList.count(actorName.toStdString())!=0)
+    if(this->m_barsList.count(objStdName)!=0)
     {//如果之前执行过颜色映射，需要关闭颜色映射、设置bar不可见
         objActor->GetMapper()->ScalarVisibilityOff();
-        this->m_barsList[actorName.toStdString()]->VisibilityOff();
-        this->m_barsStatus[actorName.toStdString()] = false;
+        this->m_barsList[objStdName]->VisibilityOff();
+        this->m_barsStatus[objStdName] = false;
     }
     m_renderWindow->Render();
+    // 从激活列表移除
+    auto it = std::find(m_activeBars.begin(), m_activeBars.end(), objStdName);
+    if(it != m_activeBars.end()) {
+        m_activeBars.erase(it);
+        UpdateAllScalarBarPositions();  // 更新剩余颜色条
+    }
     return true;
 }
+// 新增私有方法
+/**** 有问题的动态调整，标题大小改变不了
+ * void TecplotWidget::UpdateAllScalarBarPositions()
+{
+    const int totalBars = static_cast<int>(m_activeBars.size());
+    if(totalBars == 0) return;
 
+    // 动态计算单行总宽度（包含间距）
+    const float totalNeededWidth = totalBars * MIN_BAR_WIDTH
+                                      + (totalBars - 1) * HORIZONTAL_SPACING;
+
+    // 自动缩放逻辑（当总宽度超过视口85%时等比压缩）
+    const float maxAllowedWidth = 0.85f;
+    const float scaleFactor = std::min(1.0f, maxAllowedWidth / totalNeededWidth);
+    const float actualBarWidth = MIN_BAR_WIDTH * scaleFactor;
+    const float actualSpacing = HORIZONTAL_SPACING * scaleFactor;
+
+    // 起始位置计算（右对齐）
+    float startX = 1.0f - (actualBarWidth * totalBars
+                              + actualSpacing * (totalBars - 1))
+                              - 0.02f; // 右侧留白2%
+
+    // 统一垂直位置（Y坐标固定）
+    const float barHeight = 0.8f;     // 固定高度25%
+    const float verticalPos = 0.1f;   // 底部留出25%空间
+
+        // 按激活顺序排列（最新在右侧）
+    float currentX = startX;
+    for(const auto& barName : m_activeBars){
+        if(auto bar = m_barsList[barName]){
+            // 设置尺寸和位置
+            bar->SetPosition(currentX, verticalPos);
+            bar->SetWidth(actualBarWidth);
+            bar->SetHeight(barHeight);
+
+            // 精确字体控制
+            bar->GetTitleTextProperty()->SetFontSize(TITLE_FONT_SIZE * scaleFactor);
+            bar->GetLabelTextProperty()->SetFontSize(LABEL_FONT_SIZE * scaleFactor);
+
+            // 确保文字不超出边界
+            bar->SetAnnotationTextScaling(0);
+            bar->SetTitleRatio(0.01); // 标题占30%高度
+
+            currentX += actualBarWidth + actualSpacing;
+        }
+    }
+
+    m_renderWindow->Render();
+}*/
+void TecplotWidget::UpdateAllScalarBarPositions()
+{
+    const int totalBars = static_cast<int>(m_activeBars.size());
+    if (totalBars == 0) return;
+
+    // 固定宽度和间距（不再动态调整）
+    const float actualBarWidth = MIN_BAR_WIDTH;  // 固定宽度
+    const float actualSpacing = HORIZONTAL_SPACING;  // 固定间距
+
+    // 起始位置计算（右对齐）
+    float startX = 1.0f - (actualBarWidth * totalBars
+                           + actualSpacing * (totalBars - 1))
+                           - 0.02f; // 右侧留白2%
+
+    // 统一垂直位置（Y坐标固定）
+    const float barHeight = 0.8f;     // 固定高度
+    const float verticalPos = 0.1f;   // 底部留出一定空间
+
+    // 按激活顺序排列（最新在右侧）
+    float currentX = startX;
+    for (const auto& barName : m_activeBars) {
+        if (auto bar = m_barsList[barName]) {
+            // 设置尺寸和位置
+            bar->SetPosition(currentX, verticalPos);
+            bar->SetWidth(actualBarWidth);
+            bar->SetHeight(barHeight);
+
+            // 固定字体大小（不再动态调整）
+            bar->GetTitleTextProperty()->SetFontSize(12);  // 标题字体大小
+            bar->GetLabelTextProperty()->SetFontSize(10);  // 标签字体大小
+
+            // 确保文字不超出边界
+            bar->SetAnnotationTextScaling(0);
+            //bar->SetTitleRatio(0.1); // 标题占总高度的30%
+
+            currentX += actualBarWidth + actualSpacing;
+        }
+    }
+
+    m_renderWindow->Render();
+}
 QString TecplotWidget::AddSliceWidget(QString derivedActorName)
 {
     this->m_sliceWidgetNum++;
@@ -747,6 +855,8 @@ bool TecplotWidget::SetStreamTracerIntegrationStepUnit(QString streamTraceActor,
     this->m_renderWindow->Render();
     return true;
 }
+
+
 /***************************************************************************
  ***************************************************************************
  ***************************************************************************
@@ -843,7 +953,7 @@ void CutPlane::AddCutPlane(std::string &name, std::map<std::string, vtkActor *> 
  **********************ColorMap*************************************
  *******************************************************************
  *******************************************************************
- *******************************************************************/
+ ******************************************************************
 bool ColorMap::SetColorMapObject(std::string name, std::map<std::string, vtkActor *> &actorsList)
 {
     if(actorsList.count(name)==0)
@@ -903,7 +1013,7 @@ bool ColorMap::SetColorMapVariable(std::string selectedVar, std::map<std::string
     mapper->ScalarVisibilityOn();
     barActor->VisibilityOn();
     return true;
-}
+}*/
 /***************************************************************************
  ***************************************************************************
  ***************************************************************************
@@ -1016,6 +1126,33 @@ void Glyph::Initialize(std::string glyphName,std::string derivedName,std::map<st
 }
 void Glyph::SetGlyphVector(std::string vectorName)
 {
+    // 打印点总数
+      vtkIdType numPoints = this->m_data->GetNumberOfPoints();
+      std::cout << "Total Points: " << numPoints << std::endl;
+
+      // 打印所有PointData数组名称
+      vtkPointData* pd = this->m_data->GetPointData();
+      std::cout << "PointData Arrays: ";
+      for (int i = 0; i < pd->GetNumberOfArrays(); ++i) {
+          std::cout << pd->GetArrayName(i) << " ";
+      }
+      std::cout << std::endl;
+
+      // 检查目标向量是否存在
+      vtkDataArray* vectors = pd->GetArray(vectorName.c_str());
+      if (!vectors) {
+          std::cerr << "Error: Vector array '" << vectorName << "' not found!" << std::endl;
+          return;
+      }
+
+      // 打印向量维度
+      std::cout << "Vector dimensions: " << vectors->GetNumberOfComponents() << std::endl;
+
+      // 打印向量范围
+      double range[2];
+      vectors->GetRange(range, -1); // -1表示计算所有分量的总体范围
+      std::cout << "Vector range: [" << range[0] << ", " << range[1] << "]" << std::endl;
+
     this->m_data->GetPointData()->SetActiveVectors(vectorName.c_str());
     this->m_data->Modified();
 }
@@ -1108,9 +1245,10 @@ void TecplotReader::cellsReader(const std::string& cellType, const std::string& 
         unstructuredGrid->InsertNextCell(VTK_TRIANGLE, ids);
         break;
     case 4:
-        if (cellType == "FEQUADRILATETAL")
+        if (cellType == "FEQUADRILATERAL")
             unstructuredGrid->InsertNextCell(VTK_QUAD, ids);
-        else unstructuredGrid->InsertNextCell(VTK_TETRA, ids);
+        else
+            unstructuredGrid->InsertNextCell(VTK_TETRA, ids);
         break;
     case 5:
         unstructuredGrid->InsertNextCell(VTK_PYRAMID, ids);
@@ -1315,7 +1453,8 @@ vtkMultiBlockDataSet* TecplotReader::ReadTecplotData(const std::string &fileName
             sharedPointData = ug->GetPointData();
         }
         else {
-            ug->GetPointData()->ShallowCopy(sharedPointData);
+            //ug->GetPointData()->ShallowCopy(sharedPointData);
+            ug->GetPointData()->DeepCopy(sharedPointData);
         }
 
         int zoneId = zoneNum - 1;
@@ -1326,7 +1465,15 @@ vtkMultiBlockDataSet* TecplotReader::ReadTecplotData(const std::string &fileName
             std::getline(file, line);
             cellsReader(zoneCellType[zoneId], line, ug);
         }
-        multiBlock->SetBlock(zoneId, ug);
+        // 应用过滤器
+        auto removeFilter = vtkSmartPointer<vtkRemoveUnusedPoints>::New();
+        removeFilter->SetInputData(ug);
+        removeFilter->Update();
+
+        // 获取处理后的网格
+        vtkUnstructuredGrid* cleanedUG = removeFilter->GetOutput();
+        //multiBlock->SetBlock(zoneId, ug);
+        multiBlock->SetBlock(zoneId, cleanedUG);
         multiBlock->GetMetaData(zoneId)->Set(vtkCompositeDataSet::NAME(), zoneTitle[zoneId]);
     }
 
