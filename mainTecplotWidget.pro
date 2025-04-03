@@ -34,6 +34,8 @@ vtkRenderingCore-9.3d.lib\
 vtkRenderingFreeType-9.3d.lib\
 vtkRenderingOpenGL2-9.3d.lib\
 vtksys-9.3d.lib\
+vtkCommonTransforms-9.3d.lib\
+vtkFiltersModeling-9.3d.lib\
 }else{
 LIBS+=\
 vtkCommonComputationalGeometry-9.3.lib\
@@ -56,6 +58,8 @@ vtkRenderingCore-9.3.lib\
 vtkRenderingFreeType-9.3.lib\
 vtkRenderingOpenGL2-9.3.lib\
 vtksys-9.3.lib\
+vtkCommonTransforms-9.3.lib\
+vtkFiltersModeling-9.3.lib\
 }
 SOURCES += \
     TecplotWidget.cpp \

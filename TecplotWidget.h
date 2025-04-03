@@ -61,7 +61,7 @@
 #include <vtkAxesActor.h>
 #include <cctype>
 #include <vtkRemoveUnusedPoints.h>
-
+class vtkProbeFilter;
 class TecplotReader {
 public:
     TecplotReader(){}
@@ -71,45 +71,8 @@ private:
     // Helper functions:
     void pointsReader(int pointId, const std::string& line, int varNum, std::vector<vtkSmartPointer<vtkFloatArray>>& zoneData, vtkPoints* thePoints);
     void cellsReader(const std::string& cellType, const std::string& line, vtkSmartPointer<vtkUnstructuredGrid> unstructuredGrid);
+    //vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnstructuredGrid> inputGrid, double tolerance = 1e-6);
 };
-class CutPlane
-{
-public:
-    CutPlane(){}
-    ~CutPlane(){}
-    bool GetInputDataStatus();
-    void AddCutPlaneWiget(std::string derivedActorName,std::map<std::string,vtkActor*>& actorsList,QVTKInteractor* qvtkInteractor,vtkRenderer* renderer);
-    void SetInputData(vtkUnstructuredGrid* inputData,QVTKInteractor* qvtkInteractor,vtkRenderer* renderer);
-    void SetCutPlaneWidget(); // 设置widget
-    void CloseCutPlaneWidget(); // 设置widget不可见
-    void DeleteCutPlaneWidget();
-    void AddCutPlane(std::string& name,std::map<std::string,vtkActor*>& actorsList,std::map<std::string,bool>& actorsStatus);
-private:
-    vtkSmartPointer<vtkUnstructuredGrid> ug;
-    vtkSmartPointer<QVTKInteractor> qvtkInteractor;
-    vtkSmartPointer<vtkRenderer> renderer;
-
-    vtkSmartPointer<vtkImplicitPlaneWidget2> cutPlaneWidget;
-    vtkSmartPointer<vtkImplicitPlaneRepresentation> cutPlaneRep;
-    bool widgetStatus = false;//看widget是否打开过,0为未打开
-    int WidgetNum = 0;
-    bool dataStatus = false;//是否设置过数据
-    //bool cutterStatus = false; //是否有新建过cutter
-    int cutActorNum = 0; //有多少个默认名字的actor,只增不减，不重复命名
-};
-/*class ColorMap
-{
-public:
-    ColorMap() {}
-    ~ColorMap(){}
-    bool SetColorMapObject(std::string name, std::map<std::string,vtkActor*>& actorsList);  //选中操作对象
-    bool SetSolidColor(std::map<std::string,vtkScalarBarActor*>& barsList, QColor RGBA = QColor(211, 211, 211));
-    bool SetColorMapVariable(std::string selectedVar, std::map<std::string,vtkSmartPointer<vtkLookupTable> >& lutsList, std::map<std::string,vtkScalarBarActor*>& barsList,vtkRenderer* renderer);
-private:
-    vtkActor* m_selectedActor;
-    std::string m_objName;
-    bool m_selectedStatus = false; //记录是否有设置过选中操作对象，没有就不能setsolidcolor
-};*/
 class Contour
 {
  // 对一个contour进行新建、setinputdata、加入contourlist、actor列表和renderer，全都默认命名方式
@@ -117,7 +80,7 @@ public:
     Contour(){}
     ~Contour(){}
     void Initialize(std::string contourName,std::string derivedName,std::map<std::string,vtkActor*>& actorsList,vtkRenderer* renderer);
-    std::string AddContour(std::string& contourDerived); // 添加一个contour,并返回默认命名
+    //std::string AddContour(std::string& contourDerived); // 添加一个contour,并返回默认命名
     double* SetActiveProperty(std::string propertyName); // 设置，返回这个属性的range
     int AddEntry(double value);  // 设置等值线/面抽取值，返回eid
     bool EditEntry(int entryId,double value);
@@ -125,8 +88,13 @@ public:
 private:
     vtkDataSet* m_data;
     int m_valueNum = 0;//entry数量
-    bool propertyStatus = false;//是否指定过用于提取的属性参数
+    //bool propertyStatus = false;//是否指定过用于提取的属性参数
+    std::string m_propertyName;
     vtkSmartPointer<vtkContourFilter> m_contourFilter;
+    std::string m_contourName; // Contour 名称
+    std::map<std::string, vtkActor*>* out_actorsList = nullptr; // 引用外部 actorsList
+    vtkRenderer* out_renderer = nullptr; // 引用外部 renderer
+    vtkSmartPointer<vtkActor> m_contourActor; // 延迟创建的 Actor
 };
 class Glyph{
     //对一个glyph进行新建，默认命名方式
@@ -258,7 +226,14 @@ public:
      */
     QString GetPropertyName(QString actorName, int id);
 
-
+    /**
+     * @brief GetPropertyBounds
+     * @param QString actorName，进行查询的actor名称
+     * @param QString propertyName，进行查询的属性名称
+     * @return vector<double>,返回一个包含最小值和最大值的 double数组。如果查询到的actorname或propertyName不合法，则vector为空。
+     * 如果查询到的是向量，则是size=6，bounds[0]、bounds[1]表示第一个分量的bounds。
+     */
+    std::vector<double> GetPropertyBounds(QString actorName, QString propertyName);
 
     /****设置Actor颜色、颜色映射****/
     /**
@@ -268,7 +243,12 @@ public:
      * @details 对某个actor的固体颜色进行设置,如果之前执行过颜色映射，会关闭颜色映射
      */
     void SetSolidColor(QString actorName,QColor color=QColor(211,211,211));
-
+    /**
+     * @brief SetOpacity
+     * @param QString actorName，需要进行透明度设置的actor名称（会关闭到颜色映射）
+     * @param double opacity，透明度设置，0为完全透明，1为完全透明
+     */
+    void SetSolidOpacity(QString actorName, double opacity);
     /**
      * @brief GetSolidColor
      * @param QString actorName,需要获取固体颜色的actor名称
@@ -292,11 +272,36 @@ public:
      * @return bool，若该actor不存在，则返回false，否则返回true
      */
     bool SetColorMapOff(QString actorName);
-
-
     /***颜色映射：指定色阶数量***/
-
+    /**
+     * @brief SetNumberOfColor
+     * @param QString actorName，需要设置色阶数量的actor名称
+     * @param int colorNum，色阶数量
+     * @return bool，如果改模型没有打开过颜色映射则return false，否则return ture
+     */
+    bool SetNumberOfColor(QString actorName,int colorNum);
     /***颜色映射：指定色阶边界****/
+    /**
+     * @brief SetColorMapBounds
+     * @param QString actorName，需要设置颜色映射bounds的actor名称
+     * @param double low，下界
+     * @param double high，上界
+     * @return bool，如果该模型没有打开过颜色映射则return false，否则return ture（默认是范围内的
+     */
+    bool SetColorMapBounds(QString actorName,double low,double high);
+    /**开启line表达**/
+    /**
+     * @brief SetColorLineOn
+     * @param QString actorName，需要设置的actor名称，根据颜色映射的色阶数量决定等值线条数
+     * @return bool，如果该模型没有打开过颜色映射则return false，否则return ture
+     */
+    bool SetColorLineOn(QString actorName);
+    /**
+     * @brief SetColorLineOff
+     * @param QString actorName，需要设置的actor名称，关闭和颜色映射相关的等值线
+     * @return bool，如果该模型没有打开过颜色映射则return false，否则return ture
+     */
+    bool SetColorLineOff(QString actorName);
 
     /****设置cut****/
     /**
@@ -307,27 +312,66 @@ public:
      */
     QString AddSliceWidget(QString derivedActorName);
     /**
+     * @brief 激活指定切片的交互器，允许用户通过控件交互
+     * @param sliceName 切片名称（由AddSliceWidget返回的名称）
+     * @return 如果找到对应切片且操作成功返回true，否则false
+     */
+    bool EnableSliceInteraction(QString sliceName);
+    /**
+     * @brief 隐藏指定名称的切片交互器（保留平面，但禁用控件显示）
+     * @param sliceName 交互器名称（由 AddSliceWidget 返回的名称）
+     * @return 如果交互器存在且操作成功返回 true，否则返回 false
+     */
+    bool HideSliceWidget(QString sliceName);
+    /**
+     * @brief 显示指定名称的切片交互器（恢复控件显示），但是没有启用交互性
+     * @param sliceName 交互器名称（由 AddSliceWidget 返回的名称）
+     * @return 如果交互器存在且操作成功返回 true，否则返回 false
+     */
+    bool ShowSliceWidget(QString sliceName);
+    /**
      * @brief Slice，根据SliceWidget的交互面进行截面
      * @param QString sliceWidgetName，交互器的名字
      * @return bool，如果没有打开截面交互器即没有截面参考，则返回false，否则返回true
-     * @details 根据交互器进行截面
+     * @details 根据交互器进行截面（只能对交互器交互截取的面有用）
      */
     bool Slice(QString sliceWidgetName);
     /**
+     * @brief SliceByXPlane(默认会锁定交互器的可交互性)
+     * @param QString sliceName，传入AddSliceWidget返回的slice actor名称
+     * @param double xValue,x方向的值
+     * @return
+     */
+    bool SliceByXPlane(QString sliceName, double xValue);
+    /**
+     * @brief SliceByYPlane(默认会锁定交互器的可交互性)
+     * @param QString sliceName，传入AddSliceWidget返回的slice actor名称
+     * @param double yValue，y方向的值
+     * @return
+     */
+    bool SliceByYPlane(QString sliceName, double yValue);
+    /**
+     * @brief SliceByZPlane(默认会锁定交互器的可交互性)
+     * @param QString sliceName，传入AddSliceWidget返回的slice actor名称
+     * @param double zValue，z方向的值
+     * @return
+     */
+    bool SliceByZPlane(QString sliceName, double zValue);
+    /**
      * @brief GetSliceOrigin
      * @param QString sliceWidgetName，截面交互器名称
-     * @return QVector3D，返回截面时的原点
+     * @return QVector3D，返回截面时的原点，（只能对交互器交互截取的面有用）
      */
     QVector3D GetSliceOrigin(QString sliceWidgetName);
 
     /**
      * @brief GetSliceNormal
      * @param QString sliceWidgetName，截面交互器名称
-     * @return QVector3D，返回截面时的法方向
+     * @return QVector3D，返回截面时的法方向（只能对交互器交互截取的面有用）
      */
     QVector3D GetSliceNormal(QString sliceWidgetName);
 
-    /****等值线/面，只在showcontour才会进行渲染****/
+    /****等值线/面，才会进行渲染****/
     /**
      * @brief AddContour
      * @param QString contourDerivedActor，指定这个contour由哪个actor去生成
@@ -371,7 +415,6 @@ public:
      * @details 对指定的contourActor，移除指定的某个entry（entryid从0开始）。
      */
     bool RemoveEntry(QString contourName,int entryId);
-
     /****矢量图形化****/
     /**
      * @brief AddGlyph
@@ -492,6 +535,16 @@ public:
      */
     bool SetStreamTracerIntegrationStepUnit(QString streamTraceActor,int unit);
 
+    /**
+     * @brief ExtracteS1
+     * @param QString p1SurfaceName，周期P1的名称
+     * @param QString fuildName，整个固体的名称，默认"FLUID"
+     * @param double relativeR，相对百分比，默认50%
+     * @return QString，返回S1面的名称，默认命名：S1RelativeR=relativeR
+     * @details 仅能判断是否存在p1SurfaceName和FLUID的actor，具体是不是周期面1需要自行确认。
+     */
+    QString ExtracteS1(QString p1SurfaceName,QString fuildName="FLUID",double relativeR = 50.0);
+
 private:
 
     //共享的
@@ -516,13 +569,18 @@ private:
     std::map<std::string,Glyph*> m_glyphsList;
     std::map<std::string,vtkSmartPointer<vtkImplicitPlaneWidget2> > m_sliceWigetList;
     std::map<std::string,vtkSmartPointer<vtkImplicitPlaneRepresentation> > m_slicePlaneRepList;
-    std::map<std::string,vtkSmartPointer<vtkCutter> > m_cutterList;
+    std::map<std::string,vtkSmartPointer<vtkCutter> > m_cutterList;//既有slicewidget的生成又有plane的
     std::map<std::string,vtkSmartPointer<vtkMaskPoints> > m_streamTraceMaskPointsList;
     std::map<std::string,vtkSmartPointer<vtkStreamTracer> > m_streamTraceList;
 
     vtkSmartPointer<vtkOrientationMarkerWidget> m_orientationMarker;
     vtkSmartPointer<vtkAxesActor> m_axes;
 
+    std::map<std::string,int> m_numOfColorsList;
+    std::map<std::string,vtkActor*> m_colorLineList;
+    std::map<std::string,bool> m_colorLineStatus;  //正在显示的actor状态为true
+    std::map<std::string,std::string> m_colorMapPropertysList;
+    std::map<std::string,vtkSmartPointer<vtkContourFilter> > m_ColorLineContourFilterList;
     int m_varNum;
     int m_contourNum = 0;
     int m_sliceWidgetNum = 0;
@@ -534,11 +592,8 @@ private:
 
     //颜色映射barchart色阶相关
     std::vector<std::string> m_activeBars;  // 新增：维护激活的颜色条顺序
-    const int MAX_COLUMNS = 3;  // 最大允许列数（超过则收缩宽度）
     const float HORIZONTAL_SPACING = 0.005f;  // 水平间距2%
     const float MIN_BAR_WIDTH = 0.05f;       // 最小宽度12%
-    const float TITLE_FONT_SIZE = 8;         // 匹配图片比例
-    const float LABEL_FONT_SIZE = 8;
     void UpdateAllScalarBarPositions();
 };
 
