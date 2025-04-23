@@ -289,6 +289,14 @@ public:
      * @return bool，如果该模型没有打开过颜色映射则return false，否则return ture（默认是范围内的
      */
     bool SetColorMapBounds(QString actorName,double low,double high);
+
+    /***颜色映射：隐藏指定色阶**/
+    /**
+     * @brief HideScalarBars
+     * @param QStringList actorNames，需要隐藏色阶条的actorname的list
+     */
+    void HideScalarBars(const QStringList& actorNames);
+
     /**开启line表达**/
     /**
      * @brief SetColorLineOn
@@ -538,13 +546,23 @@ public:
     /**
      * @brief ExtracteS1
      * @param QString p1SurfaceName，周期P1的名称
-     * @param QString fuildName，整个固体的名称，默认"FLUID"
+     * @param QString fluidName，整个固体的名称，默认"FLUID"
      * @param double relativeR，相对百分比，默认50%
-     * @return QString，返回S1面的名称，默认命名：S1RelativeR=relativeR
+     * @return QString，返回S1面的名称，默认命名：S1_"p1SurfaceName"_RelativeR=relativeR
      * @details 仅能判断是否存在p1SurfaceName和FLUID的actor，具体是不是周期面1需要自行确认。
      */
-    QString ExtracteS1(QString p1SurfaceName,QString fuildName="FLUID",double relativeR = 50.0);
-
+    QString ExtractS1(QString p1SurfaceName,QString fluidName="FLUID",double relativeR = 50.0);
+    /**
+     * @brief ExtractS2
+     * @param periodSurfaceName 周期面名称
+     * @param fluidName 三维流场体数据 actor 名称，默认"FLUID"
+     * @param numSteps 旋转分段数，默认10
+     * @param startAngle 起始旋转角度，默认0°
+     * @param endAngle 结束旋转角度，默认360°
+     * @return QString 返回S2面的名称，格式为：S2_周期面名_Start=xx_End=xx_Steps=xx
+     * @details 判断周期面名和FLUID是否存在，内部调用 generate_s2_surface 实现。
+     */
+    QString ExtractS2(QString periodSurfaceName,QString fluidName="FLUID",int numSteps=10,double startAngle=0, double endAngle=360);
 private:
 
     //共享的

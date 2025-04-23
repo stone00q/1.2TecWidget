@@ -14,8 +14,8 @@ Widget::Widget(QWidget *parent)
        //在当前widget上布局
        QVBoxLayout* layout = new QVBoxLayout(this);
        layout->addWidget(m_tecplotWidget);
-//       m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\ROTOR67-flow_sa_[8000]_1.dat)");//Actor list: ("FLUID", "HUB", "INLET", "OUTLET", "PA", "PB", "PS", "SHROUD", "SS", "TIP")
-//       /***测试是s1面***/
+       m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\ROTOR67-flow_sa_[8000]_1.dat)");//Actor list: ("FLUID", "HUB", "INLET", "OUTLET", "PA", "PB", "PS", "SHROUD", "SS", "TIP")
+       /***测试是s1面***/
 //       qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
 //       m_tecplotWidget->ActorVisibilityOff("HUB");
 //       m_tecplotWidget->ActorVisibilityOff("INLET");
@@ -27,10 +27,27 @@ Widget::Widget(QWidget *parent)
 //       m_tecplotWidget->ActorVisibilityOff("SS");
 //       m_tecplotWidget->ActorVisibilityOff("TIP");
 //       m_tecplotWidget->SetSolidOpacity("FLUID",0.5);
-//       qInfo()<<m_tecplotWidget->ExtracteS1("PA","FLUID");
-//       qInfo()<<m_tecplotWidget->GetPropertyList("S1RelativeR=50%");
-//       m_tecplotWidget->SetColorMapOn("S1RelativeR=50%","p");
-//       m_tecplotWidget->SetColorLineOn("S1RelativeR=50%");
+//       qInfo()<<m_tecplotWidget->ExtractS1("PA","FLUID");
+//       qInfo()<<m_tecplotWidget->GetPropertyList("S1_PA_RelativeR=50%");
+//       m_tecplotWidget->SetColorMapOn("S1_PA_RelativeR=50%","p");//"X", "Y", "Z", "rho", "u", "v", "w", "p", "T", "ur", "vr", "wr", "muT", "muL", "Cf", "res_rho", "res_u", "res_v", "res_w", "res_p", "turNuBar", "sares", "velocity"
+////       m_tecplotWidget->SetColorLineOn("S1RelativeR=50%");
+
+       /***测试是s2面***/
+       qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
+       m_tecplotWidget->ActorVisibilityOff("HUB");
+       m_tecplotWidget->ActorVisibilityOff("INLET");
+       m_tecplotWidget->ActorVisibilityOff("OUTLET");
+       m_tecplotWidget->ActorVisibilityOff("PA");
+       m_tecplotWidget->ActorVisibilityOff("PB");
+       m_tecplotWidget->ActorVisibilityOff("PS");
+       m_tecplotWidget->ActorVisibilityOff("SHROUD");
+       m_tecplotWidget->ActorVisibilityOff("SS");
+       m_tecplotWidget->ActorVisibilityOff("TIP");
+       m_tecplotWidget->SetSolidOpacity("FLUID",0.5);
+       qInfo()<<m_tecplotWidget->ExtractS2("PA","FLUID");//S2_PA_Steps=10_Start=0_End=360
+       qInfo()<<m_tecplotWidget->GetPropertyList("S2_PA_Steps=10_Start=0_End=360");//("X", "Y", "Z", "rho", "u", "v", "w", "p", "T", "ur", "vr", "wr", "muT", "muL", "Cf", "res_rho", "res_u", "res_v", "res_w", "res_p", "turNuBar", "sares", "velocity")
+       m_tecplotWidget->SetColorMapOn("S2_PA_Steps=10_Start=0_End=360","p");
+
 
        /*****测试contour抽取多个等值面后进行颜色映射*******/
 //       m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\Tur_Merge_Field_[2000].dat)");
@@ -61,20 +78,24 @@ Widget::Widget(QWidget *parent)
 //       m_tecplotWidget->SetColorMapBounds("Contour1",150,20000);
 
 //       /***测试多个actor颜色映射打开和关闭*****/
-  m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\Tur_Merge_Field_[2000].dat)");
-       qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
-              m_tecplotWidget->ActorVisibilityOff("FLUID");
-              m_tecplotWidget->SetColorMapOn("OUTLET","p");
-              m_tecplotWidget->SetColorMapOn("P1","T");
-              m_tecplotWidget->SetColorMapOn("P2","rho");
-              m_tecplotWidget->SetColorMapOn("INLET","res-E");
-              //m_tecplotWidget->SetColorMapOff("P1");
-              m_tecplotWidget->ActorVisibilityOff("HUB");
-              m_tecplotWidget->ActorVisibilityOff("BLADE");
-              m_tecplotWidget->ActorVisibilityOff("SHR");
-              m_tecplotWidget->SetColorMapBounds("P1",300,600);
-
-
+//  m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\Tur_Merge_Field_[2000].dat)");
+//       qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
+//              m_tecplotWidget->ActorVisibilityOff("FLUID");
+//              m_tecplotWidget->SetColorMapOn("OUTLET","p");
+//              m_tecplotWidget->SetColorMapOn("P1","T");
+//              m_tecplotWidget->SetColorMapOn("P2","rho");
+//              m_tecplotWidget->SetColorMapOn("INLET","res-E");
+//              //m_tecplotWidget->SetColorMapOff("P1");
+//              //m_tecplotWidget->ActorVisibilityOff("HUB");
+//              m_tecplotWidget->ActorVisibilityOff("BLADE");
+//              m_tecplotWidget->ActorVisibilityOff("SHR");
+//              m_tecplotWidget->SetColorMapBounds("P1",300,600);
+//              QStringList toHide;
+//              toHide << "OUTLET" << "P1";
+//              m_tecplotWidget->HideScalarBars(toHide);
+//              m_tecplotWidget->SetColorMapOn("OUTLET");
+//              m_tecplotWidget->SetColorMapOn("P1");
+//              m_tecplotWidget->SetColorMapOn("HUB","rho");
 
        //m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\test_ctn_[10].dat)");
        // 获取 Block 数量和 Actor 列表
@@ -331,8 +352,6 @@ Widget::Widget(QWidget *parent)
 //       //m_tecplotWidget->SetStreamTracerMaximumPropagation("StreamTracer1",10);
 //       //m_tecplotWidget->SetStreamTracerIntegrationStepUnit("StreamTracer1",2);
 
-       /**测试S1平行曲面**/
-       //m_tecplotWidget->testS1();
 }
 
 Widget::~Widget()

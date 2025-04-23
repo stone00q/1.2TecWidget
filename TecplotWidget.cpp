@@ -28,7 +28,7 @@
 #include <vtkGeometryFilter.h>
 #include <vtkBoxClipDataSet.h>
 #include <vtkMergePoints.h>
-
+#include <vtkTransformFilter.h>
 // C++ 标准库
 #include <vector>
 #include <array>
@@ -40,10 +40,10 @@
 #include <stdexcept>
 #include <thread>
 #include <mutex>
-VTK_MODULE_INIT(vtkRenderingOpenGL2);
-VTK_MODULE_INIT(vtkInteractionStyle);
-//VTK_MODULE_INIT(vtkRenderingContextOpenGL2);
-VTK_MODULE_INIT(vtkRenderingFreeType)
+//VTK_MODULE_INIT(vtkRenderingOpenGL2);
+//VTK_MODULE_INIT(vtkInteractionStyle);
+////VTK_MODULE_INIT(vtkRenderingContextOpenGL2);
+//VTK_MODULE_INIT(vtkRenderingFreeType)
 
 
 
@@ -732,7 +732,7 @@ namespace  {
         return geometryFilter->GetOutput();
     }
     /**S1面提取的主要入口***/
-    vtkSmartPointer<vtkPolyData> s1Extracte(vtkSmartPointer<vtkUnstructuredGrid> p1SurfaceName, vtkSmartPointer<vtkUnstructuredGrid> ug,double relativeR = 50.0) {
+    vtkSmartPointer<vtkPolyData> s1Extract(vtkSmartPointer<vtkUnstructuredGrid> p1SurfaceName, vtkSmartPointer<vtkUnstructuredGrid> ug,double relativeR = 50.0) {
         //// Read the unstructured grid
         //auto ug = vtkSmartPointer<vtkUnstructuredGrid>::New();
         //auto ugreader = vtkSmartPointer<vtkXMLUnstructuredGridReader>::New();
@@ -770,6 +770,124 @@ namespace  {
         return result;
     }
 ///////////////////开始S2部分
+    vtkSmartPointer<vtkPolyData> generate_s2_surface(
+        vtkSmartPointer<vtkPolyData> period_surface,// 原始周期面数据
+        vtkSmartPointer<vtkUnstructuredGrid> volume_data,// // 三维流场数据
+        double start_angle=0, // 旋转起始角度
+        double end_angle=360,// 旋转结束角度
+        int num_steps = 10// 旋转结束角度
+    ) {
+        // Step 1: Extract X and R ranges from period_surface
+        //qInfo()<<"开始Step1";
+        vtkSmartPointer<vtkPoints> points = period_surface->GetPoints();
+        int num_points = points->GetNumberOfPoints();
+       // qInfo()<<"num_points:"<<num_points;
+        double x_min = VTK_DOUBLE_MAX, x_max = VTK_DOUBLE_MIN;
+        double r_min = VTK_DOUBLE_MAX, r_max = VTK_DOUBLE_MIN;
+        for (int i = 0; i < num_points; ++i) {
+            double p[3];
+            points->GetPoint(i, p);
+            double x = p[0];
+            double r = std::sqrt(p[1] * p[1] + p[2] * p[2]);
+            if (x < x_min) x_min = x;
+            if (x > x_max) x_max = x;
+            if (r < r_min) r_min = r;
+            if (r > r_max) r_max = r;
+        }
+
+        // Step 2: Initialize accumulation arrays初始化数据存储
+        // 获取 period_surface 的所有 point data 数组
+        vtkPointData* pointData = period_surface->GetPointData();
+        int numArrays = pointData->GetNumberOfArrays();
+        //qInfo()<<"Step1,num_points:"<<num_points;
+        // 存储所有数组的累加值和有效计数
+        std::vector<vtkSmartPointer<vtkDoubleArray>> sumArrays(numArrays);
+        std::vector<std::vector<double>> valueSums(numArrays, std::vector<double>(num_points, 0.0));
+        std::vector<std::vector<int>> validCounts(numArrays, std::vector<int>(num_points, 0));
+        for (int i = 0; i < numArrays; ++i) {
+            vtkDataArray* array = pointData->GetArray(i);
+            if (array) {
+                sumArrays[i] = vtkSmartPointer<vtkDoubleArray>::New();
+                sumArrays[i]->SetName(array->GetName());
+                sumArrays[i]->SetNumberOfComponents(array->GetNumberOfComponents());
+                sumArrays[i]->SetNumberOfTuples(num_points);
+            }
+        }
+
+        // Step 3: Create transform and filters设置旋转变换和插值
+        vtkSmartPointer<vtkTransform> angle_transform = vtkSmartPointer<vtkTransform>::New();
+        vtkSmartPointer<vtkTransformFilter> transform_filter = vtkSmartPointer<vtkTransformFilter>::New();
+        transform_filter->SetInputData(period_surface);
+        transform_filter->SetTransform(angle_transform);
+
+        vtkSmartPointer<vtkProbeFilter> probe_filter = vtkSmartPointer<vtkProbeFilter>::New();
+        probe_filter->SetSourceData(volume_data);
+
+        // Step 4: Rotate and probe旋转 period_surface 并进行插值
+        double angle_step = (end_angle - start_angle) / num_steps;
+        for (int i = 0; i <= num_steps; ++i) {
+            double current_angle = start_angle + i * angle_step;
+            angle_transform->Identity();
+            angle_transform->RotateX(current_angle);
+            transform_filter->Update();
+
+            probe_filter->SetInputConnection(transform_filter->GetOutputPort());
+            probe_filter->Update();
+            vtkPolyData* probed_data = probe_filter->GetPolyDataOutput();
+
+            vtkPointData* probedPointData = probed_data->GetPointData();
+            vtkIntArray* mask = vtkIntArray::SafeDownCast(probedPointData->GetArray("vtkValidPointMask"));
+            for (int arrayIdx = 0; arrayIdx < numArrays; ++arrayIdx) {
+                vtkDataArray* probedArray = probedPointData->GetArray(sumArrays[arrayIdx]->GetName());
+                if (!probedArray) continue;
+
+                for (int j = 0; j < num_points; ++j) {
+                    if (!mask || mask->GetValue(j)) {  // 仅处理有效点
+                        for (int comp = 0; comp < probedArray->GetNumberOfComponents(); ++comp) {
+                            valueSums[arrayIdx][j] += probedArray->GetComponent(j, comp);
+                        }
+                        validCounts[arrayIdx][j]++;
+                    }
+                }
+            }
+        }
+        //// Step 5: Compute mean pressure计算所有压力的平均值
+        for (int arrayIdx = 0; arrayIdx < numArrays; ++arrayIdx) {
+            vtkSmartPointer<vtkDoubleArray> avgArray = sumArrays[arrayIdx];
+            for (int j = 0; j < num_points; ++j) {
+                for (int comp = 0; comp < avgArray->GetNumberOfComponents(); ++comp) {
+                    double meanValue = (validCounts[arrayIdx][j] > 0)
+                        ? valueSums[arrayIdx][j] / validCounts[arrayIdx][j]
+                        : 0.0;
+                        avgArray->SetComponent(j, comp, meanValue);
+                }
+            }
+            if (avgArray->GetNumberOfTuples() > 0) {
+                period_surface->GetPointData()->AddArray(avgArray);
+            }
+            else {
+                std::cerr << "Skipping empty array: " << avgArray->GetName() << std::endl;
+            }
+            //period_surface->GetPointData()->AddArray(avgArray);
+        }
+        // Step 6: Generate meridional projection生成子午面
+        std::vector<vtkSmartPointer<vtkPolyData> > inputs = { period_surface };
+        vtkSmartPointer<vtkPolyData> meridional_grid = meridionalProjection(inputs);
+        // Step 7: Set normals
+        vtkSmartPointer<vtkDoubleArray> transformed_normals =
+            vtkDoubleArray::SafeDownCast(meridional_grid->GetPointData()->GetNormals());
+        if (!transformed_normals) {
+            transformed_normals = vtkSmartPointer<vtkDoubleArray>::New();
+            transformed_normals->SetNumberOfComponents(3);
+            transformed_normals->SetNumberOfTuples(meridional_grid->GetNumberOfPoints());
+        }
+        for (int i = 0; i < meridional_grid->GetNumberOfPoints(); ++i) {
+            transformed_normals->SetTuple3(i, 0, 1, 1);
+        }
+        //meridional_grid->GetPointData()->SetNormals(transformed_normals);添加了一个空的pointdata
+
+        return meridional_grid;
+    }
 }
 
 TecplotWidget::TecplotWidget(QWidget *parent)
@@ -1173,6 +1291,12 @@ bool TecplotWidget::SetColorMapOn(QString actorName,QString propertyName)
     {
         mapper->ScalarVisibilityOn();
         barActor->VisibilityOn();
+        this->m_barsStatus[objName] = true;
+        auto it = std::find(m_activeBars.begin(), m_activeBars.end(), objName);
+        if (it == m_activeBars.end()) {
+            m_activeBars.push_back(objName);
+        }
+        UpdateAllScalarBarPositions();
         this->m_renderWindow->Render();
         return true;
     }
@@ -1204,9 +1328,9 @@ bool TecplotWidget::SetColorMapOn(QString actorName,QString propertyName)
     m_activeBars.push_back(objName);
     UpdateAllScalarBarPositions();
     m_renderWindow->Render();
-    std::cout << "Active Scalar after setting: "
-              << (dataSet->GetPointData()->GetScalars() ? dataSet->GetPointData()->GetScalars()->GetName() : "NULL")
-              << std::endl;
+//    std::cout << "Active Scalar after setting: "
+//              << (dataSet->GetPointData()->GetScalars() ? dataSet->GetPointData()->GetScalars()->GetName() : "NULL")
+//              << std::endl;
     return true;
 }
 bool TecplotWidget::SetColorMapOff(QString actorName)
@@ -1273,6 +1397,25 @@ bool TecplotWidget::TecplotWidget::SetColorMapBounds(QString actorName, double l
 
         m_renderWindow->Render();
         return true;
+}
+void TecplotWidget::HideScalarBars(const QStringList& actorNames)
+{
+    for (const QString& name : actorNames) {
+        std::string actorName = name.toStdString();
+        if (this->m_barsList.count(actorName)) {
+            vtkScalarBarActor* barActor = this->m_barsList[actorName];
+            barActor->VisibilityOff();  // 仅关闭色阶条的可见性
+            this->m_barsStatus[actorName] = false;
+
+            // 从 m_activeBars 中移除
+                        auto it = std::find(m_activeBars.begin(), m_activeBars.end(), actorName);
+                        if (it != m_activeBars.end()) {
+                            m_activeBars.erase(it);
+                        }
+        }
+    }
+UpdateAllScalarBarPositions();  // 重新布局剩余的颜色条
+    this->m_renderWindow->Render();  // 重新渲染更新可见性
 }
 bool TecplotWidget::SetColorLineOn(QString actorName){
     std::string objStdName = actorName.toStdString();
@@ -2066,9 +2209,9 @@ bool TecplotWidget::SetStreamTracerIntegrationStepUnit(QString streamTraceActor,
 /**************************************************************************
  * ************************************************************************
  * ******************s1面提取************************************************/
-QString TecplotWidget::ExtracteS1(QString p1SurfaceName,QString fuildName,double relativeR){
+QString TecplotWidget::ExtractS1(QString p1SurfaceName,QString fluidName,double relativeR){
     std::string p1Name=p1SurfaceName.toStdString();
-    std::string ugName=fuildName.toStdString();
+    std::string ugName=fluidName.toStdString();
     if(this->m_actorsList.count(p1Name)==0||this->m_actorsList.count(ugName)==0){
         std::cerr << "Error: Actor not found - P1: " << p1Name
                           << " or Fluid: " << ugName << std::endl;
@@ -2076,20 +2219,66 @@ QString TecplotWidget::ExtracteS1(QString p1SurfaceName,QString fuildName,double
     }
     auto p1=vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[p1Name]->GetMapper()->GetInput());
     auto ug=vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[ugName]->GetMapper()->GetInput());
-    vtkSmartPointer<vtkPolyData> s1Data= s1Extracte(p1,ug,relativeR);
+    vtkSmartPointer<vtkPolyData> s1Data= s1Extract(p1,ug,relativeR);
     vtkSmartPointer<vtkPolyDataMapper> s1Mapper=vtkSmartPointer<vtkPolyDataMapper>::New();
     s1Mapper->SetInputData(s1Data);
     vtkSmartPointer<vtkActor> s1Actor=vtkSmartPointer<vtkActor>::New();
     s1Actor->SetMapper(s1Mapper);
-    auto s1Name=QString("S1RelativeR=%1%").arg(relativeR);  // 版本1：使用默认格式
-
+    //auto s1Name=QString("S1RelativeR=%1%").arg(relativeR);  // 版本1：使用默认格式
+    QString s1Name = QString("S1_%1_RelativeR=%2%").arg(p1SurfaceName).arg(relativeR);
     this->m_actorsList[s1Name.toStdString()]=s1Actor;
     this->m_actorsStatus[s1Name.toStdString()]=true;
     this->m_renderer->AddActor(s1Actor);
     this->m_renderWindow->Render();
     return s1Name;
 }
+QString TecplotWidget::ExtractS2(QString periodSurfaceName,QString fluidName,int numSteps,double startAngle, double endAngle){
+  //  qInfo()<<"成功进入ExtractS2函数 ";
+    std::string surfaceName = periodSurfaceName.toStdString();
+       std::string volumeName = fluidName.toStdString();
 
+       if (this->m_actorsList.count(surfaceName) == 0 || this->m_actorsList.count(volumeName) == 0) {
+           std::cerr << "Error: Actor not found - Surface: " << surfaceName
+                     << " or Fluid: " << volumeName << std::endl;
+           return "";
+       }
+
+       // 获取输入数据
+       auto periodSurface = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[surfaceName]->GetMapper()->GetInput());
+//       vtkSmartPointer<vtkPoints> points = periodSurface->GetPoints();
+//       int num_points = points->GetNumberOfPoints();
+//       qInfo()<<"num_points:"<<num_points;
+       auto volume = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[volumeName]->GetMapper()->GetInput());
+       vtkSmartPointer<vtkGeometryFilter> geometryFilter =vtkSmartPointer<vtkGeometryFilter>::New();
+       geometryFilter->SetInputData(periodSurface);
+       geometryFilter->Update();
+
+       vtkSmartPointer<vtkPolyData> pName = geometryFilter->GetOutput();
+       // 生成 S2 面
+       //qInfo()<<"开始调用generate_s2_surface ";
+       vtkSmartPointer<vtkPolyData> s2Data = generate_s2_surface(pName, volume, startAngle, endAngle, numSteps);
+
+       // 创建 Mapper 和 Actor
+       vtkSmartPointer<vtkPolyDataMapper> s2Mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+       s2Mapper->SetInputData(s2Data);
+
+       vtkSmartPointer<vtkActor> s2Actor = vtkSmartPointer<vtkActor>::New();
+       s2Actor->SetMapper(s2Mapper);
+
+       // 构造名字，例如：S2_P2_Start=0_End=360_Steps=10
+       QString s2Name = QString("S2_%1_Steps=%2_Start=%3_End=%4")
+                        .arg(periodSurfaceName)
+                        .arg(numSteps)
+                        .arg(startAngle)
+                        .arg(endAngle);
+
+       this->m_actorsList[s2Name.toStdString()] = s2Actor;
+       this->m_actorsStatus[s2Name.toStdString()] = true;
+       this->m_renderer->AddActor(s2Actor);
+       this->m_renderWindow->Render();
+
+       return s2Name;
+}
 /***************************************************************************
  ***************************************************************************
  ***************************************************************************
@@ -2271,7 +2460,7 @@ void Glyph::Initialize(std::string glyphName,std::string derivedName,std::map<st
 void Glyph::SetGlyphVector(std::string vectorName)
 {
     // 打印点总数
-      vtkIdType numPoints = this->m_data->GetNumberOfPoints();
+      //vtkIdType numPoints = this->m_data->GetNumberOfPoints();
       //std::cout << "Total Points: " << numPoints << std::endl;
 
       // 打印所有PointData数组名称
