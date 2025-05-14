@@ -546,12 +546,17 @@ public:
     /**
      * @brief ExtracteS1
      * @param QString p1SurfaceName，周期P1的名称
+     * @param QString p2SurfaceName，周期面P2的名称
+     * @param QString inletName，inlet面的名称
+     * @param QString outletName，周期面P2的名称
+     * @param QString shroudName，周期面P2的名称
+     * @param QString hubName，周期面P2的名称
      * @param QString fluidName，整个固体的名称，默认"FLUID"
      * @param double relativeR，相对百分比，默认50%
      * @return QString，返回S1面的名称，默认命名：S1_"p1SurfaceName"_RelativeR=relativeR
      * @details 仅能判断是否存在p1SurfaceName和FLUID的actor，具体是不是周期面1需要自行确认。
      */
-    QString ExtractS1(QString p1SurfaceName,QString fluidName="FLUID",double relativeR = 50.0);
+    QString ExtractS1(QString p1SurfaceName,QString p2SurfaceName,QString inletName,QString outletName,QString shroudName,QString hubName,QString fluidName="FLUID",double relativeR = 50.0);
     /**
      * @brief ExtractS2
      * @param periodSurfaceName 周期面名称
@@ -599,6 +604,10 @@ private:
     std::map<std::string,bool> m_colorLineStatus;  //正在显示的actor状态为true
     std::map<std::string,std::string> m_colorMapPropertysList;
     std::map<std::string,vtkSmartPointer<vtkContourFilter> > m_ColorLineContourFilterList;
+    std::map<std::string, bool> m_sliceWidgetVisibilityStatus;
+
+    //保存s1的面的提取
+    std::map<std::string, vtkSmartPointer<vtkUnstructuredGrid>> m_clippedCache;
     int m_varNum;
     int m_contourNum = 0;
     int m_sliceWidgetNum = 0;
@@ -613,6 +622,20 @@ private:
     const float HORIZONTAL_SPACING = 0.005f;  // 水平间距2%
     const float MIN_BAR_WIDTH = 0.05f;       // 最小宽度12%
     void UpdateAllScalarBarPositions();
+    //s1面相关：六个面提取一个体
+    vtkSmartPointer<vtkUnstructuredGrid> clipWithSixSurfaces(
+        vtkSmartPointer<vtkUnstructuredGrid> input,
+        vtkSmartPointer<vtkUnstructuredGrid> periodic1,
+        vtkSmartPointer<vtkUnstructuredGrid> periodic2,
+        vtkSmartPointer<vtkUnstructuredGrid> inlet,
+        vtkSmartPointer<vtkUnstructuredGrid> outlet,
+        vtkSmartPointer<vtkUnstructuredGrid> shroud,
+        vtkSmartPointer<vtkUnstructuredGrid> hub);
+    //根据中期面划分连接性
+    vtkSmartPointer<vtkUnstructuredGrid> ExtractConnectedRegionWithP1(
+        vtkSmartPointer<vtkUnstructuredGrid>inputGrid,
+        vtkSmartPointer<vtkUnstructuredGrid> p1Data);
+
 };
 
 #endif // TECPLOTWIDGET_H

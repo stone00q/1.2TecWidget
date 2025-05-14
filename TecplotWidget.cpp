@@ -1,5 +1,6 @@
 #include "TecplotWidget.h"
 #include <QtDebug>
+#include <QElapsedTimer>//cout runtime
 // VTK 核心基础模块
 #include <vtkSmartPointer.h>
 #include <vtkInformation.h>
@@ -29,6 +30,11 @@
 #include <vtkBoxClipDataSet.h>
 #include <vtkMergePoints.h>
 #include <vtkTransformFilter.h>
+
+//S1提取
+#include <vtkImplicitBoolean.h>
+#include <vtkClipDataSet.h>
+#include <vtkConnectivityFilter.h>
 // C++ 标准库
 #include <vector>
 #include <array>
@@ -294,7 +300,34 @@ namespace  {
             throw std::runtime_error("输出不是闭合环路");
         }
 
-        return output;
+        // 遍历点序列，跳过连续重复点
+        vtkNew<vtkPoints> unique_points;
+        vtkNew<vtkIdList> unique_ids;
+        double prev_point[3] = { VTK_DOUBLE_MAX, VTK_DOUBLE_MAX, VTK_DOUBLE_MAX };  // 初始值设为无效
+        for (vtkIdType i = 0; i < id_list->GetNumberOfIds(); ++i) {
+            vtkIdType pid = id_list->GetId(i);
+            double current_point[3];
+            output->GetPoint(pid, current_point);
+
+            // 检查当前点是否与前一点坐标相同
+            if (i == 0 || vtkMath::Distance2BetweenPoints(prev_point, current_point) > 1e-12) {
+                vtkIdType new_pid = unique_points->InsertNextPoint(current_point);
+                unique_ids->InsertNextId(new_pid);
+                prev_point[0] = current_point[0];
+                prev_point[1] = current_point[1];
+                prev_point[2] = current_point[2];
+            }
+        }
+
+        // 构建最终无重复点的线段
+        vtkNew<vtkCellArray> final_lines;
+        final_lines->InsertNextCell(unique_ids);
+
+        auto merged_pd = vtkSmartPointer<vtkPolyData>::New();
+        merged_pd->SetPoints(unique_points);
+        merged_pd->SetLines(final_lines);
+
+        return merged_pd;
     }
     struct PointWithIndex {
         std::array<double, 3> point;
@@ -683,7 +716,7 @@ namespace  {
         return cleaner->GetOutput();
     }
     /*使用inputPoly对于inputug进行截面*/
-    vtkSmartPointer<vtkPolyData> clipUgWithPolydata(vtkSmartPointer<vtkUnstructuredGrid> inputUg, vtkSmartPointer<vtkPolyData> inputPoly) {
+    vtkSmartPointer<vtkPolyData> clipUgWithPolydata(vtkSmartPointer<vtkUnstructuredGrid> inputUg,vtkSmartPointer<vtkPolyData> inputPoly) {
         // Step 1: Convert polygonal surface to implicit function
         auto implicitPoly = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
         implicitPoly->SetInput(inputPoly);
@@ -705,6 +738,63 @@ namespace  {
         // Step 3: Perform precise cutting
         auto cutter = vtkSmartPointer<vtkCutter>::New();
         cutter->SetInputData(boxClipper->GetOutput());
+        //cutter->SetInputData(inputUg);
+        cutter->SetCutFunction(implicitPoly);
+        cutter->GenerateCutScalarsOn();
+        auto locator = vtkSmartPointer<vtkMergePoints>::New();
+        cutter->SetLocator(locator);
+        cutter->Update();
+        // 获取 cutter 结果
+        vtkSmartPointer<vtkPolyData> cutterOutput = cutter->GetOutput();
+        vtkSmartPointer<vtkPointData> pointData = cutterOutput->GetPointData();
+
+        // 移除空的 PointDataArray
+        //qInfo() << "Before Cleaning: PointData Arrays: " << pointData->GetNumberOfArrays();
+        for (int i = pointData->GetNumberOfArrays() - 1; i >= 0; --i) {
+            const char* arrayName = pointData->GetArrayName(i);
+            if (!arrayName || std::string(arrayName).empty()) {
+                //qInfo() << "Removing empty array at index: " << i;
+                pointData->RemoveArray(i);
+            }
+        }
+        //qInfo() << "After Cleaning: PointData Arrays: " << pointData->GetNumberOfArrays();
+//        // Step 4: Extract surface
+//        auto geometryFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+//        geometryFilter->SetInputData(cutterOutput);
+//        geometryFilter->Update();
+
+
+        return cutterOutput;
+    }
+    vtkSmartPointer<vtkPolyData> clipUgWithPolydataCleaned(vtkSmartPointer<vtkPolyData> inputPoly,vtkSmartPointer<vtkUnstructuredGrid> input,
+                                                           vtkSmartPointer<vtkUnstructuredGrid> periodic1,
+                                                           vtkSmartPointer<vtkUnstructuredGrid> periodic2,
+                                                           vtkSmartPointer<vtkUnstructuredGrid> inlet,
+                                                           vtkSmartPointer<vtkUnstructuredGrid> outlet,
+                                                           vtkSmartPointer<vtkUnstructuredGrid> shroud,
+                                                           vtkSmartPointer<vtkUnstructuredGrid> hub) {
+        // Step 1: Convert polygonal surface to implicit function
+        auto implicitPoly = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+        implicitPoly->SetInput(inputPoly);
+
+        // Step 2: Create bounding box for initial coarse clipping
+//        double bounds[6];
+//        inputPoly->GetBounds(bounds);
+//        auto boxClipper = vtkSmartPointer<vtkBoxClipDataSet>::New();
+//        boxClipper->SetInputData(inputUg);
+//        boxClipper->SetBoxClip(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
+//        boxClipper->Update();
+//        vtkSmartPointer<vtkPointData> boxClipperPointData = boxClipper->GetOutput()->GetPointData();
+//        qInfo() << "BoxClipper Output PointData Arrays: " << boxClipperPointData->GetNumberOfArrays();
+//        for (int i = 0; i < boxClipperPointData->GetNumberOfArrays(); ++i) {
+//            qInfo() << "Array " << i << ": " << (boxClipperPointData->GetArrayName(i) ? boxClipperPointData->GetArrayName(i) : "NULL");
+//        }
+        //正常，此时没有多添加一个arrayname=""，这个""是在cutter产生的
+
+        // Step 3: Perform precise cutting
+        auto cutter = vtkSmartPointer<vtkCutter>::New();
+        //cutter->SetInputData(boxClipper->GetOutput());
+        cutter->SetInputData(input);
         cutter->SetCutFunction(implicitPoly);
         cutter->GenerateCutScalarsOn();
         auto locator = vtkSmartPointer<vtkMergePoints>::New();
@@ -731,8 +821,131 @@ namespace  {
 
         return geometryFilter->GetOutput();
     }
+    vtkSmartPointer<vtkUnstructuredGrid> clipWithSixSurfaces(
+        vtkSmartPointer<vtkPolyData> input,
+        vtkSmartPointer<vtkUnstructuredGrid> p1,
+        vtkSmartPointer<vtkUnstructuredGrid> p2,
+        vtkSmartPointer<vtkUnstructuredGrid> inlet,
+        vtkSmartPointer<vtkUnstructuredGrid> outlet,
+        vtkSmartPointer<vtkUnstructuredGrid> shroud,
+        vtkSmartPointer<vtkUnstructuredGrid> hub)
+    {
+        //runtime
+        QElapsedTimer timer;
+        timer.start();
+    //       auto regionImplicit = vtkSmartPointer<vtkImplicitBoolean>::New();
+    //           regionImplicit->SetOperationTypeToIntersection();
+    //       auto polyFilter = [](vtkSmartPointer<vtkUnstructuredGrid> ug, const QString& name) {
+    //               auto geo = vtkSmartPointer<vtkGeometryFilter>::New();
+    //               geo->SetInputData(ug);
+    //               geo->Update();
+    //               auto poly = geo->GetOutput();
+    //               qInfo().noquote() << QString("Surface [%1] polys: %2")
+    //                                    .arg(name)
+    //                                    .arg(poly->GetNumberOfPolys());
+    //               return poly;
+    //           };
+
+    //           auto P1Poly = polyFilter(periodic1, "Periodic1");
+    //           auto P2Poly = polyFilter(periodic2, "Periodic2");
+    //           auto inletPoly = polyFilter(inlet, "Inlet");
+    //           auto outletPoly = polyFilter(outlet, "Outlet");
+    //           auto shroudPoly = polyFilter(shroud, "Shroud");
+    //           auto hubPoly = polyFilter(hub, "Hub");
+
+    //           // 构造隐式距离函数
+    //           auto addImplicit = [&](vtkPolyData* pd) {
+    //               auto impl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+    //               impl->SetInput(pd);
+    //               regionImplicit->AddFunction(impl);
+    //           };
+    //           addImplicit(inletPoly);
+    //           addImplicit(outletPoly);
+    //           addImplicit(P1Poly);
+    //           addImplicit(P2Poly);
+    //           addImplicit(shroudPoly);
+    //           addImplicit(hubPoly);
+
+    //           auto clipper = vtkSmartPointer<vtkClipDataSet>::New();
+    //           clipper->SetInputData(input);
+    //           clipper->SetClipFunction(regionImplicit);
+    //           clipper->InsideOutOn();
+    //           clipper->Update();
+
+    //           qint64 elapsed = timer.elapsed();
+    //           qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
+
+    //           return clipper->GetOutput();
+        // 1. 创建隐式函数对象
+        auto regionImplicit = vtkSmartPointer<vtkImplicitBoolean>::New();
+        regionImplicit->SetOperationTypeToIntersection();  // 所有面都为必须满足
+
+        //全部ug转为polydata
+        auto p1Poly = vtkSmartPointer<vtkGeometryFilter>::New();
+        p1Poly->SetInputData(p1);
+        p1Poly->Update();
+        auto p2Poly = vtkSmartPointer<vtkGeometryFilter>::New();
+        p2Poly->SetInputData(p2);
+        p2Poly->Update();
+        auto inletPoly = vtkSmartPointer<vtkGeometryFilter>::New();
+        inletPoly->SetInputData(inlet);
+        inletPoly->Update();
+        auto outletPoly = vtkSmartPointer<vtkGeometryFilter>::New();
+        outletPoly->SetInputData(outlet);
+        outletPoly->Update();
+        auto shroudPoly = vtkSmartPointer<vtkGeometryFilter>::New();
+        shroudPoly->SetInputData(shroud);
+        shroudPoly->Update();
+        auto hubPoly = vtkSmartPointer<vtkGeometryFilter>::New();
+        hubPoly->SetInputData(hub);
+        hubPoly->Update();
+        // === inlet: 保留面之后（正向） ===
+        auto p1Impl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+        p1Impl->SetInput(p1Poly->GetOutput());
+        regionImplicit->AddFunction(p1Impl);
+
+        auto p2Impl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+        p2Impl->SetInput(p2Poly->GetOutput());
+        regionImplicit->AddFunction(p2Impl);
+
+        auto inletImpl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+        inletImpl->SetInput(inletPoly->GetOutput());
+        regionImplicit->AddFunction(inletImpl);
+
+        // === outlet: 保留面之前（反向） ===
+        auto outletImpl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+        outletImpl->SetInput(outletPoly->GetOutput());
+        regionImplicit->AddFunction(outletImpl);
+
+        auto shroudImpl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+        shroudImpl->SetInput(shroudPoly->GetOutput());
+        regionImplicit->AddFunction(shroudImpl);
+
+        auto hubImpl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+        hubImpl->SetInput(hubPoly->GetOutput());
+        regionImplicit->AddFunction(hubImpl);
+
+        // 2. 执行 clip 操作
+        auto clipper = vtkSmartPointer<vtkClipDataSet>::New();
+        clipper->SetInputData(input);
+        //clipper->SetInputData(boxClipper->GetOutput());
+        clipper->SetClipFunction(regionImplicit);
+        clipper->InsideOutOn();  // 保留“封闭盒”内部区域
+        clipper->Update();
+
+
+        // 3. 拷贝结果（可避免依赖 clipper 管线）
+    //    auto result = vtkSmartPointer<vtkUnstructuredGrid>::New();
+    //    result->DeepCopy(clipper->GetOutput());
+    //    qInfo()<<"function return result";
+    //    return result;
+                   qint64 elapsed = timer.elapsed();
+                   qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
+        return clipper->GetOutput();
+    }
     /**S1面提取的主要入口***/
-    vtkSmartPointer<vtkPolyData> s1Extract(vtkSmartPointer<vtkUnstructuredGrid> p1SurfaceName, vtkSmartPointer<vtkUnstructuredGrid> ug,double relativeR = 50.0) {
+
+    vtkSmartPointer<vtkUnstructuredGrid> s1Extract(vtkSmartPointer<vtkUnstructuredGrid> p1SurfaceName,vtkSmartPointer<vtkUnstructuredGrid> p2SurfaceName,vtkSmartPointer<vtkUnstructuredGrid> inlet,vtkSmartPointer<vtkUnstructuredGrid>outlet,vtkSmartPointer<vtkUnstructuredGrid>shroud,vtkSmartPointer<vtkUnstructuredGrid>hub,vtkSmartPointer<vtkUnstructuredGrid> ug,double relativeR = 50.0) {
         //// Read the unstructured grid
         //auto ug = vtkSmartPointer<vtkUnstructuredGrid>::New();
         //auto ugreader = vtkSmartPointer<vtkXMLUnstructuredGridReader>::New();
@@ -764,10 +977,10 @@ namespace  {
 
         // Probe the unstructured grid with the rotational surface
         //auto result = probeUgWithPolydata(ug, rotationalSurface);
-        auto result = clipUgWithPolydata(ug, rotationalSurface);
-
-
-        return result;
+        //auto result = clipUgWithPolydata(ug, rotationalSurface);
+        auto result=clipUgWithPolydata(ug, rotationalSurface);//旋转面切割出来的结果
+        auto target=clipWithSixSurfaces(result,p1SurfaceName,p2SurfaceName,inlet,outlet,shroud,hub);
+        return target;
     }
 ///////////////////开始S2部分
     vtkSmartPointer<vtkPolyData> generate_s2_surface(
@@ -984,7 +1197,11 @@ bool TecplotWidget::ActorVisibilityOn(QString actorName)
     }
     if(actorName.contains("Slice"))
     {
-        this->m_sliceWigetList[name]->EnabledOn();
+        // 检查widget是否之前是启用的
+               if(this->m_sliceWidgetVisibilityStatus[name])
+               {
+                   this->m_sliceWigetList[name]->EnabledOn();
+               }
     }
     if(this->m_barsStatus.count(name)!=0){
         if(this->m_barsStatus[name])
@@ -1060,6 +1277,7 @@ bool TecplotWidget::RemoveActor(QString actorName)
     {
         this->m_cutterList.erase(name);
         this->m_sliceWigetList.erase(name);
+        this->m_sliceWidgetVisibilityStatus.erase(name);
         this->m_slicePlaneRepList.erase(name);
         this->m_sliceWidgetNum--;
     }else if(actorName.contains("StreamTracer"))
@@ -1271,22 +1489,19 @@ bool TecplotWidget::SetColorMapOn(QString actorName,QString propertyName)
         this->m_lutsList[objName] = lut;
         this->m_barsList[objName] = barActor;
         this->m_renderer->AddActor2D(barActor);
-
-        // 初始化颜色条样式，标题和颜色
-        // 智能设置标签格式
+        this->m_barsStatus[objName] = true;
+        m_numOfColorsList[objName]=10;
+        m_activeBars.push_back(objName);
         barActor->SetLabelFormat("%g");  // 使用%g自动选择最合适的格式
         barActor->SetTitle(end.c_str());
         barActor->SetNumberOfLabels(10);
         barActor->SetVerticalTitleSeparation(9);//让颜色条的标题与色阶有一定的距离
-        //barActor->SetLabelFormat("%.2e");  // 科学计数法显示
-        //barActor->SetMaximumFontSize(24);  // 不存在这个函数，最大字号限制vtkScalarBarActor 默认启用了内部的 AutoSize 机制，字体大小会被它 自动计算，完全忽略你手动设置的 SetFontSize()。
-//        barActor->GetTitleTextProperty()->BoldOn();        // 加粗字体
-//        barActor->GetLabelTextProperty()->BoldOn();        // 加粗标签
+
     }
     m_colorMapPropertysList[objName]=objVar;
     auto lut = m_lutsList[objName];
     auto barActor = m_barsList[objName];
-    this->m_barsStatus[objName] = true;
+
     if(propertyName=="")
     {
         mapper->ScalarVisibilityOn();
@@ -1301,36 +1516,31 @@ bool TecplotWidget::SetColorMapOn(QString actorName,QString propertyName)
         return true;
     }
     // 设置 Active Scalars
-    m_numOfColorsList[objName]=10;
+    //m_numOfColorsList[objName]=10;
     int selectedId = dataSet->GetPointData()->SetActiveScalars(objVar.c_str());
-    //打印active标量是什么：
-//    if (dataSet->GetPointData()->GetScalars()) {
-//            std::cout << " Before setting, ActiveScalar: "
-//                      << dataSet->GetPointData()->GetScalars()->GetName() << std::endl;
-//            std::cout<<"selectedId:"<<selectedId<<std::endl;
-//        } else {
-//            std::cout << "Before setting, ActiveScalar: NULL" << std::endl;
-//        }
     vtkDataArray* scalar = dataSet->GetPointData()->GetArray(selectedId);
     lut->SetTableRange(scalar->GetRange());
     lut->SetNumberOfColors(256);
     lut->SetHueRange(0.666, 0.0);
     lut->Build();
     barActor->SetLookupTable(lut);
+    barActor->SetTitle(end.c_str());
     mapper->SetScalarRange(scalar->GetRange());
     mapper->SetLookupTable(lut);
     mapper->ScalarVisibilityOn();
     mapper->SetScalarModeToUsePointFieldData();
     mapper->SelectColorArray(propertyName.toStdString().c_str());  // 指定颜色映射属性
+    barActor->VisibilityOn();
 //    mapper->UseLookupTableScalarRangeOn();//这句话会影响，bar色阶显示的是range还是lut的range/
     // 强制更新颜色条位置
     // 添加到激活列表并更新布局
-    m_activeBars.push_back(objName);
+    this->m_barsStatus[objName] = true;
+    auto it = std::find(m_activeBars.begin(), m_activeBars.end(), objName);
+    if (it == m_activeBars.end()) {
+        m_activeBars.push_back(objName);
+    }
     UpdateAllScalarBarPositions();
     m_renderWindow->Render();
-//    std::cout << "Active Scalar after setting: "
-//              << (dataSet->GetPointData()->GetScalars() ? dataSet->GetPointData()->GetScalars()->GetName() : "NULL")
-//              << std::endl;
     return true;
 }
 bool TecplotWidget::SetColorMapOff(QString actorName)
@@ -1408,13 +1618,13 @@ void TecplotWidget::HideScalarBars(const QStringList& actorNames)
             this->m_barsStatus[actorName] = false;
 
             // 从 m_activeBars 中移除
-                        auto it = std::find(m_activeBars.begin(), m_activeBars.end(), actorName);
-                        if (it != m_activeBars.end()) {
-                            m_activeBars.erase(it);
-                        }
+            auto it = std::find(m_activeBars.begin(), m_activeBars.end(), actorName);
+            if (it != m_activeBars.end()) {
+                    m_activeBars.erase(it);
+            }
         }
     }
-UpdateAllScalarBarPositions();  // 重新布局剩余的颜色条
+    UpdateAllScalarBarPositions();  // 重新布局剩余的颜色条
     this->m_renderWindow->Render();  // 重新渲染更新可见性
 }
 bool TecplotWidget::SetColorLineOn(QString actorName){
@@ -1493,20 +1703,6 @@ bool TecplotWidget::SetColorLineOff(QString actorName){
             bar->SetWidth(actualBarWidth);
             bar->SetHeight(barHeight);
             currentX += actualBarWidth + actualSpacing;
-//            // 设置尺寸和位置
-//            bar->SetPosition(currentX, verticalPos);
-//            bar->SetWidth(actualBarWidth);
-//            bar->SetHeight(barHeight);
-
-//            // 精确字体控制
-//            bar->GetTitleTextProperty()->SetFontSize(TITLE_FONT_SIZE * scaleFactor);
-//            bar->GetLabelTextProperty()->SetFontSize(LABEL_FONT_SIZE * scaleFactor);
-
-//            // 确保文字不超出边界
-//            bar->SetAnnotationTextScaling(0);
-//            bar->SetTitleRatio(0.01); // 标题占30%高度
-
-//            currentX += actualBarWidth + actualSpacing;
         }
     }
     m_renderWindow->Render();
@@ -1557,6 +1753,7 @@ QString TecplotWidget::AddSliceWidget(QString derivedActorName)
     this->m_sliceWidgetNum++;
     std::string name = "Slice"+std::to_string(m_sliceWidgetNum);
     vtkActor* objActor = this->m_actorsList[derivedActorName.toStdString()];
+    this->m_sliceWidgetVisibilityStatus[name]=true;//为了控制显示，新增加的25.04.29
     vtkDataSet* data = vtkDataSet::SafeDownCast(objActor->GetMapper()->GetInput());
 
     vtkSmartPointer<vtkImplicitPlaneWidget2> cutPlaneWidget = vtkSmartPointer<vtkImplicitPlaneWidget2>::New();
@@ -1635,6 +1832,7 @@ bool TecplotWidget::HideSliceWidget(QString sliceName)
     }
 
     vtkImplicitPlaneWidget2* widget = m_sliceWigetList[name];
+    m_sliceWidgetVisibilityStatus[name]=false;
     widget->SetEnabled(0);      // 禁用并隐藏交互器控件
     m_renderWindow->Render();   // 立即刷新渲染
     return true;
@@ -1648,6 +1846,7 @@ bool TecplotWidget::ShowSliceWidget(QString sliceName)
 
     vtkImplicitPlaneWidget2* widget = m_sliceWigetList[name];
     widget->SetEnabled(1);      // 启用并显示交互器控件
+    m_sliceWidgetVisibilityStatus[name] = true; // 更新状态
     m_renderWindow->Render();   // 立即刷新渲染
     return true;
 }
@@ -2209,7 +2408,7 @@ bool TecplotWidget::SetStreamTracerIntegrationStepUnit(QString streamTraceActor,
 /**************************************************************************
  * ************************************************************************
  * ******************s1面提取************************************************/
-QString TecplotWidget::ExtractS1(QString p1SurfaceName,QString fluidName,double relativeR){
+QString TecplotWidget::ExtractS1(QString p1SurfaceName,QString p2SurfaceName,QString inletName,QString outletName,QString shroudName,QString hubName,QString fluidName,double relativeR){
     std::string p1Name=p1SurfaceName.toStdString();
     std::string ugName=fluidName.toStdString();
     if(this->m_actorsList.count(p1Name)==0||this->m_actorsList.count(ugName)==0){
@@ -2218,9 +2417,37 @@ QString TecplotWidget::ExtractS1(QString p1SurfaceName,QString fluidName,double 
         return "";
     }
     auto p1=vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[p1Name]->GetMapper()->GetInput());
+    auto p2 = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[p2SurfaceName.toStdString()]->GetMapper()->GetInput());
     auto ug=vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[ugName]->GetMapper()->GetInput());
-    vtkSmartPointer<vtkPolyData> s1Data= s1Extract(p1,ug,relativeR);
-    vtkSmartPointer<vtkPolyDataMapper> s1Mapper=vtkSmartPointer<vtkPolyDataMapper>::New();
+    auto inlet = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[inletName.toStdString()]->GetMapper()->GetInput());
+    auto outlet = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[outletName.toStdString()]->GetMapper()->GetInput());
+    auto shroud = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[shroudName.toStdString()]->GetMapper()->GetInput());
+    auto hub = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[hubName.toStdString()]->GetMapper()->GetInput());
+    // clipWithSixSurfaces 结果复用
+    std::string cacheKey = "clipped_" + p1Name + "_" + ugName;
+    vtkSmartPointer<vtkUnstructuredGrid> clippedUG;
+    if (m_clippedCache.count(cacheKey)) {
+        clippedUG = m_clippedCache[cacheKey];
+        //std::cout << "Reusing cached clipped result." << std::endl;
+        } else {
+//            // 请根据你的项目逻辑调用获取 6 面：p2、inlet、outlet、shroud、hub
+//            auto p2 = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[p2SurfaceName.toStdString()]->GetMapper()->GetInput());
+//            auto inlet = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[inletName.toStdString()]->GetMapper()->GetInput());
+//            auto outlet = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[outletName.toStdString()]->GetMapper()->GetInput());
+//            auto shroud = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[shroudName.toStdString()]->GetMapper()->GetInput());
+//            auto hub = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[hubName.toStdString()]->GetMapper()->GetInput());
+//            qInfo()<<"test";
+//            clippedUG = clipWithSixSurfaces(ug, p1, p2, inlet, outlet, shroud, hub);
+//            m_clippedCache[cacheKey] = clippedUG;
+        clippedUG= ExtractConnectedRegionWithP1(ug,p1);
+        m_clippedCache[cacheKey]=clippedUG;
+        qInfo()<<"success clippud";
+    }
+    //vtkSmartPointer<vtkPolyData> s1Data= s1Extract(p1,inlet,outlet,clippedUG,relativeR);
+//    vtkSmartPointer<vtkPolyDataMapper> s1Mapper=vtkSmartPointer<vtkPolyDataMapper>::New();
+//    s1Mapper->SetInputData(s1Data);
+    vtkSmartPointer<vtkUnstructuredGrid> s1Data= s1Extract(p1,p2,inlet,outlet,shroud,hub,clippedUG,relativeR);
+    vtkSmartPointer<vtkDataSetMapper> s1Mapper=vtkSmartPointer<vtkDataSetMapper>::New();
     s1Mapper->SetInputData(s1Data);
     vtkSmartPointer<vtkActor> s1Actor=vtkSmartPointer<vtkActor>::New();
     s1Actor->SetMapper(s1Mapper);
@@ -2278,6 +2505,166 @@ QString TecplotWidget::ExtractS2(QString periodSurfaceName,QString fluidName,int
        this->m_renderWindow->Render();
 
        return s2Name;
+}
+
+/*************************S1提取相关**********************************/
+vtkSmartPointer<vtkUnstructuredGrid> TecplotWidget::clipWithSixSurfaces(
+    vtkSmartPointer<vtkUnstructuredGrid> input,
+    vtkSmartPointer<vtkUnstructuredGrid> periodic1,
+    vtkSmartPointer<vtkUnstructuredGrid> periodic2,
+    vtkSmartPointer<vtkUnstructuredGrid> inlet,
+    vtkSmartPointer<vtkUnstructuredGrid> outlet,
+    vtkSmartPointer<vtkUnstructuredGrid> shroud,
+    vtkSmartPointer<vtkUnstructuredGrid> hub)
+{
+    //runtime
+    QElapsedTimer timer;
+    timer.start();
+//       auto regionImplicit = vtkSmartPointer<vtkImplicitBoolean>::New();
+//           regionImplicit->SetOperationTypeToIntersection();
+//       auto polyFilter = [](vtkSmartPointer<vtkUnstructuredGrid> ug, const QString& name) {
+//               auto geo = vtkSmartPointer<vtkGeometryFilter>::New();
+//               geo->SetInputData(ug);
+//               geo->Update();
+//               auto poly = geo->GetOutput();
+//               qInfo().noquote() << QString("Surface [%1] polys: %2")
+//                                    .arg(name)
+//                                    .arg(poly->GetNumberOfPolys());
+//               return poly;
+//           };
+
+//           auto P1Poly = polyFilter(periodic1, "Periodic1");
+//           auto P2Poly = polyFilter(periodic2, "Periodic2");
+//           auto inletPoly = polyFilter(inlet, "Inlet");
+//           auto outletPoly = polyFilter(outlet, "Outlet");
+//           auto shroudPoly = polyFilter(shroud, "Shroud");
+//           auto hubPoly = polyFilter(hub, "Hub");
+
+//           // 构造隐式距离函数
+//           auto addImplicit = [&](vtkPolyData* pd) {
+//               auto impl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+//               impl->SetInput(pd);
+//               regionImplicit->AddFunction(impl);
+//           };
+//           addImplicit(inletPoly);
+//           addImplicit(outletPoly);
+//           addImplicit(P1Poly);
+//           addImplicit(P2Poly);
+//           addImplicit(shroudPoly);
+//           addImplicit(hubPoly);
+
+//           auto clipper = vtkSmartPointer<vtkClipDataSet>::New();
+//           clipper->SetInputData(input);
+//           clipper->SetClipFunction(regionImplicit);
+//           clipper->InsideOutOn();
+//           clipper->Update();
+
+//           qint64 elapsed = timer.elapsed();
+//           qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
+
+//           return clipper->GetOutput();
+    // 1. 创建隐式函数对象
+    auto regionImplicit = vtkSmartPointer<vtkImplicitBoolean>::New();
+    regionImplicit->SetOperationTypeToIntersection();  // 所有面都为必须满足
+
+    //全部ug转为polydata
+    auto P1Poly = vtkSmartPointer<vtkGeometryFilter>::New();
+    P1Poly->SetInputData(periodic1);
+    P1Poly->Update();
+//    //添加box预先粗剪，要不然速度太慢了
+//    double bounds[6];
+//    P1Poly->GetOutput()->GetBounds(bounds);
+//    auto boxClipper = vtkSmartPointer<vtkBoxClipDataSet>::New();
+//    boxClipper->SetInputData(input);
+//    boxClipper->SetBoxClip(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
+//    boxClipper->Update();
+
+    auto P2Poly = vtkSmartPointer<vtkGeometryFilter>::New();
+    P2Poly->SetInputData(periodic2);
+    P2Poly->Update();
+    auto inletPoly = vtkSmartPointer<vtkGeometryFilter>::New();
+    inletPoly->SetInputData(inlet);
+    inletPoly->Update();
+    auto outletPoly = vtkSmartPointer<vtkGeometryFilter>::New();
+    outletPoly->SetInputData(outlet);
+    outletPoly->Update();
+    auto shroudPoly = vtkSmartPointer<vtkGeometryFilter>::New();
+    shroudPoly->SetInputData(shroud);
+    shroudPoly->Update();
+    auto hubPoly = vtkSmartPointer<vtkGeometryFilter>::New();
+    hubPoly->SetInputData(hub);
+    hubPoly->Update();
+    // === inlet: 保留面之后（正向） ===
+    auto inletImpl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+    inletImpl->SetInput(inletPoly->GetOutput());
+    regionImplicit->AddFunction(inletImpl);
+
+    // === outlet: 保留面之前（反向） ===
+    auto outletImpl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+    outletImpl->SetInput(outletPoly->GetOutput());
+    regionImplicit->AddFunction(outletImpl);
+
+    // === periodic1: 保留一侧（正向） ===
+    auto periodic1Impl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+    periodic1Impl->SetInput(P1Poly->GetOutput());
+    regionImplicit->AddFunction(periodic1Impl);
+
+    auto periodic2Impl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+    periodic2Impl->SetInput(P2Poly->GetOutput());
+    regionImplicit->AddFunction(periodic2Impl);
+
+    auto shroudImpl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+    shroudImpl->SetInput(shroudPoly->GetOutput());
+    regionImplicit->AddFunction(shroudImpl);
+
+    auto hubImpl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+    hubImpl->SetInput(hubPoly->GetOutput());
+    regionImplicit->AddFunction(hubImpl);
+
+    // 2. 执行 clip 操作
+    auto clipper = vtkSmartPointer<vtkClipDataSet>::New();
+    clipper->SetInputData(input);
+    //clipper->SetInputData(boxClipper->GetOutput());
+    clipper->SetClipFunction(regionImplicit);
+    clipper->InsideOutOn();  // 保留“封闭盒”内部区域
+    clipper->Update();
+
+
+    // 3. 拷贝结果（可避免依赖 clipper 管线）
+//    auto result = vtkSmartPointer<vtkUnstructuredGrid>::New();
+//    result->DeepCopy(clipper->GetOutput());
+//    qInfo()<<"function return result";
+//    return result;
+               qint64 elapsed = timer.elapsed();
+               qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
+    return clipper->GetOutput();
+}
+vtkSmartPointer<vtkUnstructuredGrid> TecplotWidget::ExtractConnectedRegionWithP1(
+    vtkSmartPointer<vtkUnstructuredGrid>inputGrid,
+    vtkSmartPointer<vtkUnstructuredGrid> p1Data)
+{
+    // 1. 找到 P1 的中心点（或任意一个点）作为种子点
+    vtkSmartPointer<vtkGeometryFilter> geometryFilter =
+        vtkSmartPointer<vtkGeometryFilter>::New();
+    geometryFilter->SetInputData(p1Data);
+    geometryFilter->Update();
+
+    vtkSmartPointer<vtkPolyData> p1PolyData = geometryFilter->GetOutput();
+    double seedPoint[3];
+    p1PolyData->GetPoint(0, seedPoint); // 也可用中心点或平均值
+
+    // 2. 使用 ConnectivityFilter 提取与该点所在区域连通的单元
+    auto connectivityFilter = vtkSmartPointer<vtkConnectivityFilter>::New();
+    connectivityFilter->SetInputData(inputGrid);
+    connectivityFilter->SetExtractionModeToClosestPointRegion();
+    connectivityFilter->SetClosestPoint(seedPoint);
+    connectivityFilter->Update();
+
+    // 3. 获取输出
+    auto result = vtkSmartPointer<vtkUnstructuredGrid>::New();
+    result->ShallowCopy(connectivityFilter->GetOutput());
+
+    return result;
 }
 /***************************************************************************
  ***************************************************************************
