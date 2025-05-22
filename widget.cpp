@@ -14,7 +14,13 @@ Widget::Widget(QWidget *parent)
        //在当前widget上布局
        QVBoxLayout* layout = new QVBoxLayout(this);
        layout->addWidget(m_tecplotWidget);
-       m_tecplotWidget->SetFileName(R"(E:\VTK\data\nasa-4Stage-Turbine.dat)");
+       m_tecplotWidget->SetFileName(R"(E:\VTK\data\ROTOR67-flow_sa_[8000]_1.plt)");
+       auto actors=m_tecplotWidget->GetActorList();
+       qInfo()<<actors;
+       for(auto actor:actors){
+           m_tecplotWidget->ActorVisibilityOff(actor);
+       }
+       m_tecplotWidget->ExtractS1("PA","PB","INLET","OUTLET","SHROUD","HUB","FLUID");
                    /*"FLUID"
             "INLET"
             "OUTLET"
@@ -72,15 +78,15 @@ Widget::Widget(QWidget *parent)
             "ROW_8_HUB"
             "ROW_8_MAIN_BLADE"
             "ROW_8_SHROUD"*/
-       //测试s1和s2
-              QStringList actors = m_tecplotWidget->GetActorList();
-              for(QString& actor : actors) {
-                  qInfo()<<actor;
-                  m_tecplotWidget->ActorVisibilityOff(actor);
-                  //m_tecplotWidget->SetColorMapOn(actor, "X");
-              }
-              qInfo()<<m_tecplotWidget->ExtractS1("P41","P42","RANS41","RANS42","ROW_4_HUB","ROW_4_SHROUD");
-              qInfo()<<m_tecplotWidget->GetPropertyList("S1_P41_RelativeR=50%");
+//       //测试s1和s2
+//              QStringList actors = m_tecplotWidget->GetActorList();
+//              for(QString& actor : actors) {
+//                  qInfo()<<actor;
+//                  m_tecplotWidget->ActorVisibilityOff(actor);
+//                  //m_tecplotWidget->SetColorMapOn(actor, "X");
+//              }
+//              qInfo()<<m_tecplotWidget->ExtractS1("P41","P42","RANS41","RANS42","ROW_4_HUB","ROW_4_SHROUD");
+//              qInfo()<<m_tecplotWidget->GetPropertyList("S1_P41_RelativeR=50%");
              // qInfo()<<m_tecplotWidget->GetPropertyList("S2_P11_Steps=10_Start=0_End=360");
        //m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10].dat)");
             /*"FLUID"

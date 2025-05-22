@@ -46,13 +46,16 @@
 #include <stdexcept>
 #include <thread>
 #include <mutex>
-//VTK_MODULE_INIT(vtkRenderingOpenGL2);
-//VTK_MODULE_INIT(vtkInteractionStyle);
-////VTK_MODULE_INIT(vtkRenderingContextOpenGL2);
-//VTK_MODULE_INIT(vtkRenderingFreeType)
+
+//plt读入相关
+#include <vtkVisItTecplotBinaryReader.h>
+VTK_MODULE_INIT(vtkRenderingOpenGL2);
+VTK_MODULE_INIT(vtkInteractionStyle);
+//VTK_MODULE_INIT(vtkRenderingContextOpenGL2);
+VTK_MODULE_INIT(vtkRenderingFreeType)
 
 
-
+vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnstructuredGrid> inputGrid, double tolerance);
 /***********S1S2面*********************/
 namespace  {
     /**
@@ -940,7 +943,7 @@ namespace  {
     //    qInfo()<<"function return result";
     //    return result;
                    qint64 elapsed = timer.elapsed();
-                   qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
+                   //qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
         return clipper->GetOutput();
     }
     /**S1面提取的主要入口***/
@@ -1140,44 +1143,265 @@ TecplotWidget::~TecplotWidget()
 {
 }
 /**设置需要读入的文件的路径，对block0进行绘制？？**/
+//void TecplotWidget::SetFileName(QString fileName)
+//{
+//    this->m_multiBlock = this->m_reader.ReadTecplotData(fileName.toStdString());
+//    //qInfo()<<"after read";
+//    if (!this->m_multiBlock) {
+//            QMessageBox::warning(this, "Warning", "文件读取失败");
+//            return;
+//    }
+//    this->m_blockNum = this ->m_multiBlock->GetNumberOfBlocks();
+//    //qInfo()<<"blockNum:"<<this->m_blockNum;
+//    //将每个block作为一个actor渲染，并且以block的name来命名
+//    std::string blockName = "";
+//    for(int i = 0;i < this->m_blockNum;i++)
+//    {
+//        const char* Name = this->m_multiBlock->GetMetaData(i)->Get(vtkCompositeDataSet::NAME());
+//        blockName = Name;
+
+//        auto tmpMapper=vtkSmartPointer<vtkDataSetMapper>::New();
+//        auto tmpActor=vtkSmartPointer<vtkActor>::New();
+//        m_actorsList[blockName]=tmpActor;
+//        this->m_actorsStatus[blockName]=true;
+//        //qInfo()<<vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i))->GetPointData()->GetNumberOfArrays();
+//        //qInfo()<<vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i))->GetNumberOfPoints();
+//        tmpMapper->SetInputData(vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i)));
+//        tmpActor->SetMapper(tmpMapper);
+//        this->m_renderer->AddActor(tmpActor);
+//        blockName.clear();
+//    }
+//    this->m_renderWindow->Render();
+//}
+bool HasVelocityArray(vtkPointData* pd)
+{
+    for (int i = 0; i < pd->GetNumberOfArrays(); ++i)
+    {
+        const char* name = pd->GetArrayName(i);
+        if (!name) continue;
+        if (strcmp(name, "velocity") == 0 || strcmp(name, "vel") == 0)
+            return true;
+    }
+    return false;
+}
+void RenamePointArraysToSimpleNames(vtkPointData* pd)
+{
+    if (!pd) return;
+
+    std::vector<std::pair<vtkDataArray*, std::string>> renameList;
+
+    for (int i = 0; i < pd->GetNumberOfArrays(); ++i)
+    {
+        vtkDataArray* array = pd->GetArray(i);
+        if (!array || !array->GetName()) continue;
+
+        std::string name = array->GetName();
+        size_t slashPos = name.find('/');
+        if (slashPos != std::string::npos && slashPos + 1 < name.size()) {
+            std::string newName = name.substr(slashPos + 1);
+            renameList.emplace_back(array, newName);
+        }
+    }
+
+    for (auto& pair : renameList) {
+        pair.first->SetName(pair.second.c_str());
+    }
+}
 void TecplotWidget::SetFileName(QString fileName)
 {
-    this->m_multiBlock = this->m_reader.ReadTecplotData(fileName.toStdString());
-    //qInfo()<<"after read";
-    if (!this->m_multiBlock) {
+    std::string filename = fileName.toStdString();
+
+    if (filename.substr(filename.find_last_of('.') + 1) == "plt")
+    {
+        // 使用 ParaView 的 vtkVisItTecplotBinaryReader 读取 .plt
+        auto pltreader = vtkSmartPointer<vtkVisItTecplotBinaryReader>::New();
+        pltreader->SetFileName(filename.c_str());
+        pltreader->Update();
+        //qInfo()<<pltreader->GetNumberOfMeshArrays();
+        int numMeshes = pltreader->GetNumberOfMeshArrays();
+        //枚举所有mesh都是打开，还要枚举所有属性
+        int numPointArrays = pltreader->GetNumberOfPointArrays();
+        for (int i = 0; i < numMeshes; ++i) {
+            const char* meshName = pltreader->GetMeshArrayName(i);
+//            qInfo() << "MeshArray[" << i << "]:" << meshName
+//                    << " Status:" << pltreader->GetMeshArrayStatus(meshName);
+
+            // 2. 设置状态为“选中”
+            if(!pltreader->GetMeshArrayStatus(meshName)){
+                pltreader->SetMeshArrayStatus(meshName, 1);
+            }
+
+
+        }
+        for (int i = 0; i < numPointArrays; ++i) {
+            const char* arrayName = pltreader->GetPointArrayName(i);
+            if (!pltreader->GetPointArrayStatus(arrayName)) {
+                pltreader->SetPointArrayStatus(arrayName, 1);
+                //qInfo() << "[PointArray] 启用变量:" << arrayName;
+            }
+        }
+        pltreader->Update();
+        vtkMultiBlockDataSet* root = vtkMultiBlockDataSet::SafeDownCast(pltreader->GetOutput());
+        if (!root) {
+            QMessageBox::warning(this, "Warning", "无法读取 PLT 数据为 vtkMultiBlockDataSet");
+             return;
+            }
+        this->m_multiBlock = root;  // 保存引用
+        int actorCount = 0;
+        for (unsigned int meshIdx = 0; meshIdx < root->GetNumberOfBlocks(); ++meshIdx)
+            {
+                vtkDataObject* meshObj = root->GetBlock(meshIdx);
+                std::string meshName = "Mesh_" + std::to_string(meshIdx);
+                if (root->GetMetaData(meshIdx)->Has(vtkCompositeDataSet::NAME()))
+                    meshName = root->GetMetaData(meshIdx)->Get(vtkCompositeDataSet::NAME());
+
+                vtkMultiBlockDataSet* meshBlock = vtkMultiBlockDataSet::SafeDownCast(meshObj);
+                if (!meshBlock) continue;
+
+                for (unsigned int blockIdx = 0; blockIdx < meshBlock->GetNumberOfBlocks(); ++blockIdx)
+                {
+                    vtkDataObject* blockObj = meshBlock->GetBlock(blockIdx);
+                    std::string blockName = meshName + "_Block_" + std::to_string(blockIdx);
+                    if (meshBlock->GetMetaData(blockIdx)->Has(vtkCompositeDataSet::NAME()))
+                        blockName = meshBlock->GetMetaData(blockIdx)->Get(vtkCompositeDataSet::NAME());
+
+                    vtkUnstructuredGrid* dataset = vtkUnstructuredGrid::SafeDownCast(blockObj);
+                    if (!dataset) continue;
+
+                    //去重
+                    //去除未使用点
+                    vtkSmartPointer<vtkRemoveUnusedPoints> removeFilter = vtkSmartPointer<vtkRemoveUnusedPoints>::New();
+                    removeFilter->SetInputData(dataset);
+                    removeFilter->Update();
+
+                    //进行拓扑去重（你提供的函数）
+                    double tolerance = 1e-6;  // 可根据实际数据精度调整
+                    vtkSmartPointer<vtkUnstructuredGrid> cleanedGrid = manualRemoveOverlap(removeFilter->GetOutput(), tolerance);
+                    if (!cleanedGrid || cleanedGrid->GetNumberOfPoints() == 0) {
+                        qWarning() << "Block" << blockName.c_str() << "去重失败或为空，跳过";
+                        continue;
+                    }
+
+                    vtkPointData* pd = cleanedGrid->GetPointData();
+                    //去掉属性变量名的zone前缀，统一变量名
+                    RenamePointArraysToSimpleNames(pd);
+                    if (pd && !HasVelocityArray(pd)) {
+                        vtkSmartPointer<vtkArrayCalculator> calculator = vtkSmartPointer<vtkArrayCalculator>::New();
+                        calculator->SetInputData(cleanedGrid);
+                        calculator->AddScalarArrayName("u");
+                        calculator->AddScalarArrayName("v");
+                        calculator->AddScalarArrayName("w");
+                        calculator->SetResultArrayName("velocity");
+                        calculator->SetFunction("u*iHat + v*jHat + w*kHat");
+                        calculator->Update();
+
+                        // 将计算出的向量字段手动添加回 cleanedGrid 的 PointData
+                        vtkDataArray* velocityArray = calculator->GetUnstructuredGridOutput()->GetPointData()->GetArray("velocity");
+                        if (velocityArray)
+                        {
+                            pd->AddArray(velocityArray);
+                            pd->SetVectors(velocityArray);  // 可选：设置为默认向量
+                            //qInfo() << "该block已添加velocity" << blockName.c_str();
+                        }
+                    }
+                    //创建 mapper 和 actor，使用去重后的网格
+                    auto mapper = vtkSmartPointer<vtkDataSetMapper>::New();
+                    mapper->SetInputData(cleanedGrid);
+
+                    auto actor = vtkSmartPointer<vtkActor>::New();
+                    actor->SetMapper(mapper);
+
+                    this->m_renderer->AddActor(actor);
+                    m_actorsList[blockName] = actor;
+                    m_actorsStatus[blockName] = true;
+
+                    ++actorCount;
+                }
+            }
+        this->m_blockNum=actorCount;
+        }
+//            qInfo() << "[INFO] 总块数（zone数:" << this->m_multiBlock->GetNumberOfBlocks();
+//            for (unsigned int i = 0; i < this->m_multiBlock->GetNumberOfBlocks(); ++i)
+//                {
+//                    vtkDataObject* block = this->m_multiBlock->GetBlock(i);
+//                    if (!block) {
+//                        qWarning() << "Block" << i << ":none";
+//                        continue;
+//                    }
+
+//                    QString name = "Unnamed_Block_" + QString::number(i);
+//                    if (this->m_multiBlock->GetMetaData(i)->Has(vtkCompositeDataSet::NAME()))
+//                    {
+//                        name = this->m_multiBlock->GetMetaData(i)->Get(vtkCompositeDataSet::NAME());
+//                    }
+
+//                    auto dataset = vtkDataSet::SafeDownCast(block);
+//                    if (!dataset)
+//                    {
+//                        qWarning() << "Block" << i  << name << "is not vtkDataSet";
+//                        continue;
+//                    }
+
+//                    int nPoints = dataset->GetNumberOfPoints();
+//                    int nCells = dataset->GetNumberOfCells();
+
+//                    qInfo() << "Block" << i << "name:" << name;
+//                    qInfo() << "pointsNum:" << nPoints << ",cells:" << nCells;
+
+//                    vtkPointData* pd = dataset->GetPointData();
+//                    int nArrays = pd->GetNumberOfArrays();
+//                    qInfo() << "number of propertys:" << nArrays;
+
+//                    for (int j = 0; j < nArrays; ++j)
+//                    {
+//                        const char* arrName = pd->GetArrayName(j);
+//                        int numComponents = pd->GetArray(j)->GetNumberOfComponents();
+//                        QString type = (numComponents == 1) ? "Scalar" : QString("Vector(%1)").arg(numComponents);
+//                        qInfo() << "preperty[" << j << "]:" << arrName << " type:" << type;
+//                    }
+//                }
+
+    else
+    {
+        // 使用原有 ASCII .dat 读取器
+        this->m_multiBlock = this->m_reader.ReadTecplotData(filename);
+        if (!this->m_multiBlock) {
             QMessageBox::warning(this, "Warning", "文件读取失败");
             return;
-    }
-    this->m_blockNum = this ->m_multiBlock->GetNumberOfBlocks();
-    //qInfo()<<"blockNum:"<<this->m_blockNum;
-    //将每个block作为一个actor渲染，并且以block的name来命名
-    std::string blockName = "";
-    for(int i = 0;i < this->m_blockNum;i++)
-    {
-        const char* Name = this->m_multiBlock->GetMetaData(i)->Get(vtkCompositeDataSet::NAME());
-        blockName = Name;
+        }
 
-        auto tmpMapper=vtkSmartPointer<vtkDataSetMapper>::New();
-        auto tmpActor=vtkSmartPointer<vtkActor>::New();
-        m_actorsList[blockName]=tmpActor;
-        this->m_actorsStatus[blockName]=true;
-        //qInfo()<<vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i))->GetPointData()->GetNumberOfArrays();
-        //qInfo()<<vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i))->GetNumberOfPoints();
-        tmpMapper->SetInputData(vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i)));
-        tmpActor->SetMapper(tmpMapper);
-        this->m_renderer->AddActor(tmpActor);
-        blockName.clear();
+        this->m_blockNum = this->m_multiBlock->GetNumberOfBlocks();
+
+        std::string blockName = "";
+        for (int i = 0; i < this->m_blockNum; i++)
+        {
+            const char* Name = this->m_multiBlock->GetMetaData(i)->Get(vtkCompositeDataSet::NAME());
+            blockName = Name ? Name : ("Block_" + std::to_string(i));
+
+            auto tmpMapper = vtkSmartPointer<vtkDataSetMapper>::New();
+            auto tmpActor = vtkSmartPointer<vtkActor>::New();
+
+            tmpMapper->SetInputData(vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i)));
+            tmpActor->SetMapper(tmpMapper);
+            this->m_renderer->AddActor(tmpActor);
+
+            m_actorsList[blockName] = tmpActor;
+            m_actorsStatus[blockName] = true;
+            blockName.clear();
+        }
     }
     this->m_renderWindow->Render();
 }
+
 int TecplotWidget::GetNumberOfBlock()
 {
-    if(this->m_multiBlock->GetNumberOfBlocks()==0)
-    {
-        QMessageBox::warning(this, "Warning", "请先打开文件");
-        return 0;
-    }
-    return this->m_multiBlock->GetNumberOfBlocks();
+//    if(this->m_multiBlock->GetNumberOfBlocks()==0)
+//    {
+//        QMessageBox::warning(this, "Warning", "请先打开文件");
+//        return 0;
+//    }
+//    return this->m_multiBlock->GetNumberOfBlocks();
+    return this->m_blockNum;
 }
 QStringList TecplotWidget::GetActorList()
 {
@@ -2441,7 +2665,7 @@ QString TecplotWidget::ExtractS1(QString p1SurfaceName,QString p2SurfaceName,QSt
 //            m_clippedCache[cacheKey] = clippedUG;
         clippedUG= ExtractConnectedRegionWithP1(ug,p1);
         m_clippedCache[cacheKey]=clippedUG;
-        qInfo()<<"success clippud";
+        //qInfo()<<"success clippud";
     }
     //vtkSmartPointer<vtkPolyData> s1Data= s1Extract(p1,inlet,outlet,clippedUG,relativeR);
 //    vtkSmartPointer<vtkPolyDataMapper> s1Mapper=vtkSmartPointer<vtkPolyDataMapper>::New();
