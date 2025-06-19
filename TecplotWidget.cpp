@@ -290,9 +290,6 @@ namespace  {
 
         // 检查输出是否形成闭合环路（可选）
         auto output_lines = output->GetLines();
-//        if (output_lines->GetNumberOfCells() == 0) {
-//            throw std::runtime_error("vtkStripper 未能生成有效的折线");
-//        }
 
         // 如果需要确保是单一闭合环路，可以进一步验证
         vtkSmartPointer<vtkIdList> id_list = vtkSmartPointer<vtkIdList>::New();
@@ -731,12 +728,6 @@ namespace  {
         boxClipper->SetInputData(inputUg);
         boxClipper->SetBoxClip(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
         boxClipper->Update();
-//        vtkSmartPointer<vtkPointData> boxClipperPointData = boxClipper->GetOutput()->GetPointData();
-//        qInfo() << "BoxClipper Output PointData Arrays: " << boxClipperPointData->GetNumberOfArrays();
-//        for (int i = 0; i < boxClipperPointData->GetNumberOfArrays(); ++i) {
-//            qInfo() << "Array " << i << ": " << (boxClipperPointData->GetArrayName(i) ? boxClipperPointData->GetArrayName(i) : "NULL");
-//        }
-        //正常，此时没有多添加一个arrayname=""，这个""是在cutter产生的
 
         // Step 3: Perform precise cutting
         auto cutter = vtkSmartPointer<vtkCutter>::New();
@@ -760,11 +751,6 @@ namespace  {
                 pointData->RemoveArray(i);
             }
         }
-        //qInfo() << "After Cleaning: PointData Arrays: " << pointData->GetNumberOfArrays();
-//        // Step 4: Extract surface
-//        auto geometryFilter = vtkSmartPointer<vtkGeometryFilter>::New();
-//        geometryFilter->SetInputData(cutterOutput);
-//        geometryFilter->Update();
 
 
         return cutterOutput;
@@ -779,20 +765,6 @@ namespace  {
         // Step 1: Convert polygonal surface to implicit function
         auto implicitPoly = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
         implicitPoly->SetInput(inputPoly);
-
-        // Step 2: Create bounding box for initial coarse clipping
-//        double bounds[6];
-//        inputPoly->GetBounds(bounds);
-//        auto boxClipper = vtkSmartPointer<vtkBoxClipDataSet>::New();
-//        boxClipper->SetInputData(inputUg);
-//        boxClipper->SetBoxClip(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-//        boxClipper->Update();
-//        vtkSmartPointer<vtkPointData> boxClipperPointData = boxClipper->GetOutput()->GetPointData();
-//        qInfo() << "BoxClipper Output PointData Arrays: " << boxClipperPointData->GetNumberOfArrays();
-//        for (int i = 0; i < boxClipperPointData->GetNumberOfArrays(); ++i) {
-//            qInfo() << "Array " << i << ": " << (boxClipperPointData->GetArrayName(i) ? boxClipperPointData->GetArrayName(i) : "NULL");
-//        }
-        //正常，此时没有多添加一个arrayname=""，这个""是在cutter产生的
 
         // Step 3: Perform precise cutting
         auto cutter = vtkSmartPointer<vtkCutter>::New();
@@ -833,52 +805,7 @@ namespace  {
         vtkSmartPointer<vtkUnstructuredGrid> shroud,
         vtkSmartPointer<vtkUnstructuredGrid> hub)
     {
-        //runtime
-        QElapsedTimer timer;
-        timer.start();
-    //       auto regionImplicit = vtkSmartPointer<vtkImplicitBoolean>::New();
-    //           regionImplicit->SetOperationTypeToIntersection();
-    //       auto polyFilter = [](vtkSmartPointer<vtkUnstructuredGrid> ug, const QString& name) {
-    //               auto geo = vtkSmartPointer<vtkGeometryFilter>::New();
-    //               geo->SetInputData(ug);
-    //               geo->Update();
-    //               auto poly = geo->GetOutput();
-    //               qInfo().noquote() << QString("Surface [%1] polys: %2")
-    //                                    .arg(name)
-    //                                    .arg(poly->GetNumberOfPolys());
-    //               return poly;
-    //           };
 
-    //           auto P1Poly = polyFilter(periodic1, "Periodic1");
-    //           auto P2Poly = polyFilter(periodic2, "Periodic2");
-    //           auto inletPoly = polyFilter(inlet, "Inlet");
-    //           auto outletPoly = polyFilter(outlet, "Outlet");
-    //           auto shroudPoly = polyFilter(shroud, "Shroud");
-    //           auto hubPoly = polyFilter(hub, "Hub");
-
-    //           // 构造隐式距离函数
-    //           auto addImplicit = [&](vtkPolyData* pd) {
-    //               auto impl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
-    //               impl->SetInput(pd);
-    //               regionImplicit->AddFunction(impl);
-    //           };
-    //           addImplicit(inletPoly);
-    //           addImplicit(outletPoly);
-    //           addImplicit(P1Poly);
-    //           addImplicit(P2Poly);
-    //           addImplicit(shroudPoly);
-    //           addImplicit(hubPoly);
-
-    //           auto clipper = vtkSmartPointer<vtkClipDataSet>::New();
-    //           clipper->SetInputData(input);
-    //           clipper->SetClipFunction(regionImplicit);
-    //           clipper->InsideOutOn();
-    //           clipper->Update();
-
-    //           qint64 elapsed = timer.elapsed();
-    //           qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
-
-    //           return clipper->GetOutput();
         // 1. 创建隐式函数对象
         auto regionImplicit = vtkSmartPointer<vtkImplicitBoolean>::New();
         regionImplicit->SetOperationTypeToIntersection();  // 所有面都为必须满足
@@ -942,19 +869,12 @@ namespace  {
     //    result->DeepCopy(clipper->GetOutput());
     //    qInfo()<<"function return result";
     //    return result;
-                   qint64 elapsed = timer.elapsed();
-                   //qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
         return clipper->GetOutput();
     }
     /**S1面提取的主要入口***/
 
     vtkSmartPointer<vtkUnstructuredGrid> s1Extract(vtkSmartPointer<vtkUnstructuredGrid> p1SurfaceName,vtkSmartPointer<vtkUnstructuredGrid> p2SurfaceName,vtkSmartPointer<vtkUnstructuredGrid> inlet,vtkSmartPointer<vtkUnstructuredGrid>outlet,vtkSmartPointer<vtkUnstructuredGrid>shroud,vtkSmartPointer<vtkUnstructuredGrid>hub,vtkSmartPointer<vtkUnstructuredGrid> ug,double relativeR = 50.0) {
         //// Read the unstructured grid
-        //auto ug = vtkSmartPointer<vtkUnstructuredGrid>::New();
-        //auto ugreader = vtkSmartPointer<vtkXMLUnstructuredGridReader>::New();
-        //ugreader->SetFileName(blockFileName.c_str());
-        //ugreader->Update();
-        //ug = ugreader->GetOutput();
           // 转换为 PolyData
         vtkSmartPointer<vtkGeometryFilter> geometryFilter =
             vtkSmartPointer<vtkGeometryFilter>::New();
@@ -977,10 +897,6 @@ namespace  {
         double endAngle = angleBounds.second;
         auto rotationalSurface = generateRotationalSurface(s1Curve, startAngle, endAngle, nseg);
 
-
-        // Probe the unstructured grid with the rotational surface
-        //auto result = probeUgWithPolydata(ug, rotationalSurface);
-        //auto result = clipUgWithPolydata(ug, rotationalSurface);
         auto result=clipUgWithPolydata(ug, rotationalSurface);//旋转面切割出来的结果
         auto target=clipWithSixSurfaces(result,p1SurfaceName,p2SurfaceName,inlet,outlet,shroud,hub);
         return target;
@@ -1142,37 +1058,6 @@ TecplotWidget::TecplotWidget(QWidget *parent)
 TecplotWidget::~TecplotWidget()
 {
 }
-/**设置需要读入的文件的路径，对block0进行绘制？？**/
-//void TecplotWidget::SetFileName(QString fileName)
-//{
-//    this->m_multiBlock = this->m_reader.ReadTecplotData(fileName.toStdString());
-//    //qInfo()<<"after read";
-//    if (!this->m_multiBlock) {
-//            QMessageBox::warning(this, "Warning", "文件读取失败");
-//            return;
-//    }
-//    this->m_blockNum = this ->m_multiBlock->GetNumberOfBlocks();
-//    //qInfo()<<"blockNum:"<<this->m_blockNum;
-//    //将每个block作为一个actor渲染，并且以block的name来命名
-//    std::string blockName = "";
-//    for(int i = 0;i < this->m_blockNum;i++)
-//    {
-//        const char* Name = this->m_multiBlock->GetMetaData(i)->Get(vtkCompositeDataSet::NAME());
-//        blockName = Name;
-
-//        auto tmpMapper=vtkSmartPointer<vtkDataSetMapper>::New();
-//        auto tmpActor=vtkSmartPointer<vtkActor>::New();
-//        m_actorsList[blockName]=tmpActor;
-//        this->m_actorsStatus[blockName]=true;
-//        //qInfo()<<vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i))->GetPointData()->GetNumberOfArrays();
-//        //qInfo()<<vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i))->GetNumberOfPoints();
-//        tmpMapper->SetInputData(vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i)));
-//        tmpActor->SetMapper(tmpMapper);
-//        this->m_renderer->AddActor(tmpActor);
-//        blockName.clear();
-//    }
-//    this->m_renderWindow->Render();
-//}
 bool HasVelocityArray(vtkPointData* pd)
 {
     for (int i = 0; i < pd->GetNumberOfArrays(); ++i)
@@ -1320,46 +1205,6 @@ void TecplotWidget::SetFileName(QString fileName)
             }
         this->m_blockNum=actorCount;
         }
-//            qInfo() << "[INFO] 总块数（zone数:" << this->m_multiBlock->GetNumberOfBlocks();
-//            for (unsigned int i = 0; i < this->m_multiBlock->GetNumberOfBlocks(); ++i)
-//                {
-//                    vtkDataObject* block = this->m_multiBlock->GetBlock(i);
-//                    if (!block) {
-//                        qWarning() << "Block" << i << ":none";
-//                        continue;
-//                    }
-
-//                    QString name = "Unnamed_Block_" + QString::number(i);
-//                    if (this->m_multiBlock->GetMetaData(i)->Has(vtkCompositeDataSet::NAME()))
-//                    {
-//                        name = this->m_multiBlock->GetMetaData(i)->Get(vtkCompositeDataSet::NAME());
-//                    }
-
-//                    auto dataset = vtkDataSet::SafeDownCast(block);
-//                    if (!dataset)
-//                    {
-//                        qWarning() << "Block" << i  << name << "is not vtkDataSet";
-//                        continue;
-//                    }
-
-//                    int nPoints = dataset->GetNumberOfPoints();
-//                    int nCells = dataset->GetNumberOfCells();
-
-//                    qInfo() << "Block" << i << "name:" << name;
-//                    qInfo() << "pointsNum:" << nPoints << ",cells:" << nCells;
-
-//                    vtkPointData* pd = dataset->GetPointData();
-//                    int nArrays = pd->GetNumberOfArrays();
-//                    qInfo() << "number of propertys:" << nArrays;
-
-//                    for (int j = 0; j < nArrays; ++j)
-//                    {
-//                        const char* arrName = pd->GetArrayName(j);
-//                        int numComponents = pd->GetArray(j)->GetNumberOfComponents();
-//                        QString type = (numComponents == 1) ? "Scalar" : QString("Vector(%1)").arg(numComponents);
-//                        qInfo() << "preperty[" << j << "]:" << arrName << " type:" << type;
-//                    }
-//                }
 
     else
     {
@@ -1395,12 +1240,6 @@ void TecplotWidget::SetFileName(QString fileName)
 
 int TecplotWidget::GetNumberOfBlock()
 {
-//    if(this->m_multiBlock->GetNumberOfBlocks()==0)
-//    {
-//        QMessageBox::warning(this, "Warning", "请先打开文件");
-//        return 0;
-//    }
-//    return this->m_multiBlock->GetNumberOfBlocks();
     return this->m_blockNum;
 }
 QStringList TecplotWidget::GetActorList()
@@ -1609,21 +1448,21 @@ std::vector<double> TecplotWidget::GetPropertyBounds(QString actorName, QString 
                 // 标量情况，返回大小为 2 的向量
                 bounds.resize(2);
                 array->GetRange(bounds.data());
-                std::cout << "Scalar bounds for " << propertyName.toStdString() << " in "
-                          << actorName.toStdString() << ": [" << bounds[0] << ", " << bounds[1] << "]" << std::endl;
+//                std::cout << "Scalar bounds for " << propertyName.toStdString() << " in "
+//                          << actorName.toStdString() << ": [" << bounds[0] << ", " << bounds[1] << "]" << std::endl;
             } else {
                 // 向量情况，返回大小为 numComponents * 2 的向量（每个分量的 min 和 max）
                 bounds.resize(numComponents * 2);
                 for (int comp = 0; comp < numComponents; comp++) {
                     array->GetRange(&bounds[2 * comp], comp); // 获取第 comp 分量的范围
                 }
-                std::cout << "Vector bounds for " << propertyName.toStdString() << " in "
-                          << actorName.toStdString() << " (" << numComponents << " components): ";
-                for (int i = 0; i < numComponents; i++) {
-                    std::cout << "[" << bounds[2 * i] << ", " << bounds[2 * i + 1] << "]";
-                    if (i < numComponents - 1) std::cout << ", ";
-                }
-                std::cout << std::endl;
+//                std::cout << "Vector bounds for " << propertyName.toStdString() << " in "
+//                          << actorName.toStdString() << " (" << numComponents << " components): ";
+//                for (int i = 0; i < numComponents; i++) {
+//                    std::cout << "[" << bounds[2 * i] << ", " << bounds[2 * i + 1] << "]";
+//                    if (i < numComponents - 1) std::cout << ", ";
+//                }
+//                std::cout << std::endl;
             }
 
             return bounds;
@@ -1931,47 +1770,6 @@ bool TecplotWidget::SetColorLineOff(QString actorName){
     }
     m_renderWindow->Render();
 }
-//void TecplotWidget::UpdateAllScalarBarPositions()
-//{
-//    const int totalBars = static_cast<int>(m_activeBars.size());
-//    if (totalBars == 0) return;
-
-//    // 固定宽度和间距（不再动态调整）
-//    const float actualBarWidth = MIN_BAR_WIDTH;  // 固定宽度
-//    const float actualSpacing = HORIZONTAL_SPACING;  // 固定间距
-
-//    // 起始位置计算（右对齐）
-//    float startX = 1.0f - (actualBarWidth * totalBars
-//                           + actualSpacing * (totalBars - 1))
-//                           - 0.02f; // 右侧留白2%
-
-//    // 统一垂直位置（Y坐标固定）
-//    const float barHeight = 0.8f;     // 固定高度
-//    const float verticalPos = 0.1f;   // 底部留出一定空间
-
-//    // 按激活顺序排列（最新在右侧）
-//    float currentX = startX;
-//    for (const auto& barName : m_activeBars) {
-//        if (auto bar = m_barsList[barName]) {
-//            // 设置尺寸和位置
-//            bar->SetPosition(currentX, verticalPos);
-//            bar->SetWidth(actualBarWidth);
-//            bar->SetHeight(barHeight);
-
-//            // 固定字体大小（不再动态调整）
-//            bar->GetTitleTextProperty()->SetFontSize(12);  // 标题字体大小
-//            bar->GetLabelTextProperty()->SetFontSize(10);  // 标签字体大小
-
-//            // 确保文字不超出边界
-//            bar->SetAnnotationTextScaling(0);
-//            //bar->SetTitleRatio(0.1); // 标题占总高度的30%
-
-//            currentX += actualBarWidth + actualSpacing;
-//        }
-//    }
-
-//    m_renderWindow->Render();
-//}
 QString TecplotWidget::AddSliceWidget(QString derivedActorName)
 {
     this->m_sliceWidgetNum++;
@@ -1994,17 +1792,6 @@ QString TecplotWidget::AddSliceWidget(QString derivedActorName)
     this->m_actorsList[name] = cutActor;
     this->m_actorsStatus[name] = true;
     this->m_renderer->AddActor(cutActor);
-
-//    // 关键修改：设置包围盒并保留空余
-//      double bounds[6];
-//      data->GetBounds(bounds); // 获取原始数据包围盒
-//      double expansionFactor = 0.1; // 扩展系数（10% 的空余）
-//      for (int i = 0; i < 6; i += 2) {
-//          double length = bounds[i+1] - bounds[i];
-//          bounds[i] -= length * expansionFactor;
-//          bounds[i+1] += length * expansionFactor;
-//      }
-//      cutPlaneRep->PlaceWidget(bounds); // 设置带空余的包围盒
 
     cutPlaneRep->SetPlaceFactor(1.2);
     cutPlaneRep->PlaceWidget(data->GetBounds());
@@ -2273,9 +2060,6 @@ QString TecplotWidget::AddContour(QString contourDerivedActor)
 }
 double* TecplotWidget::SetContouredBy(QString contourName,QString propertyName)
 {
-//    Contour* contourptr = this->m_contoursList[contourName.toStdString()];
-//    double* range = contourptr->SetActiveProperty(propertyName.toStdString());
-//    return range;
     auto it = m_contoursList.find(contourName.toStdString());
         if (it == m_contoursList.end()) {
             qWarning() << "Contour" << contourName << "does not exist!";
@@ -2291,9 +2075,6 @@ double* TecplotWidget::SetContouredBy(QString contourName,QString propertyName)
 }
 int TecplotWidget::AddEntry(QString contourName, double value)
 {
-//    Contour* contourptr = this->m_contoursList[contourName.toStdString()];
-//    int entryId =contourptr->AddEntry(value);
-//    return entryId;
     auto it = m_contoursList.find(contourName.toStdString());
         if (it == m_contoursList.end()) {
             qWarning() << "Contour" << contourName << "does not exist!";
@@ -2322,19 +2103,6 @@ bool TecplotWidget::RemoveEntry(QString contourName, int entryId)
     m_renderWindow->Render();
     return flag;
 }
-/*void TecplotWidget::ShowContour(QString contourName)
-{
-    //注意apply之后，默认会关闭其他所有的actor显示
-    for(auto& object:this->m_actorsList)
-    {//打开的其他actor关闭
-        if(object.first!=contourName.toStdString()){
-            vtkActor* actor = object.second;
-            actor->VisibilityOff();
-            m_actorsStatus[object.first] = false;
-        }
-    }
-    this->m_renderer->Render();
-}*/
 /****矢量图形化****/
 QString TecplotWidget::AddGlyph(QString glyphDerived)
 {
@@ -2654,15 +2422,6 @@ QString TecplotWidget::ExtractS1(QString p1SurfaceName,QString p2SurfaceName,QSt
         clippedUG = m_clippedCache[cacheKey];
         //std::cout << "Reusing cached clipped result." << std::endl;
         } else {
-//            // 请根据你的项目逻辑调用获取 6 面：p2、inlet、outlet、shroud、hub
-//            auto p2 = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[p2SurfaceName.toStdString()]->GetMapper()->GetInput());
-//            auto inlet = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[inletName.toStdString()]->GetMapper()->GetInput());
-//            auto outlet = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[outletName.toStdString()]->GetMapper()->GetInput());
-//            auto shroud = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[shroudName.toStdString()]->GetMapper()->GetInput());
-//            auto hub = vtkUnstructuredGrid::SafeDownCast(this->m_actorsList[hubName.toStdString()]->GetMapper()->GetInput());
-//            qInfo()<<"test";
-//            clippedUG = clipWithSixSurfaces(ug, p1, p2, inlet, outlet, shroud, hub);
-//            m_clippedCache[cacheKey] = clippedUG;
         clippedUG= ExtractConnectedRegionWithP1(ug,p1);
         m_clippedCache[cacheKey]=clippedUG;
         //qInfo()<<"success clippud";
@@ -2742,51 +2501,9 @@ vtkSmartPointer<vtkUnstructuredGrid> TecplotWidget::clipWithSixSurfaces(
     vtkSmartPointer<vtkUnstructuredGrid> hub)
 {
     //runtime
-    QElapsedTimer timer;
-    timer.start();
-//       auto regionImplicit = vtkSmartPointer<vtkImplicitBoolean>::New();
-//           regionImplicit->SetOperationTypeToIntersection();
-//       auto polyFilter = [](vtkSmartPointer<vtkUnstructuredGrid> ug, const QString& name) {
-//               auto geo = vtkSmartPointer<vtkGeometryFilter>::New();
-//               geo->SetInputData(ug);
-//               geo->Update();
-//               auto poly = geo->GetOutput();
-//               qInfo().noquote() << QString("Surface [%1] polys: %2")
-//                                    .arg(name)
-//                                    .arg(poly->GetNumberOfPolys());
-//               return poly;
-//           };
+    //QElapsedTimer timer;
+   // timer.start();
 
-//           auto P1Poly = polyFilter(periodic1, "Periodic1");
-//           auto P2Poly = polyFilter(periodic2, "Periodic2");
-//           auto inletPoly = polyFilter(inlet, "Inlet");
-//           auto outletPoly = polyFilter(outlet, "Outlet");
-//           auto shroudPoly = polyFilter(shroud, "Shroud");
-//           auto hubPoly = polyFilter(hub, "Hub");
-
-//           // 构造隐式距离函数
-//           auto addImplicit = [&](vtkPolyData* pd) {
-//               auto impl = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
-//               impl->SetInput(pd);
-//               regionImplicit->AddFunction(impl);
-//           };
-//           addImplicit(inletPoly);
-//           addImplicit(outletPoly);
-//           addImplicit(P1Poly);
-//           addImplicit(P2Poly);
-//           addImplicit(shroudPoly);
-//           addImplicit(hubPoly);
-
-//           auto clipper = vtkSmartPointer<vtkClipDataSet>::New();
-//           clipper->SetInputData(input);
-//           clipper->SetClipFunction(regionImplicit);
-//           clipper->InsideOutOn();
-//           clipper->Update();
-
-//           qint64 elapsed = timer.elapsed();
-//           qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
-
-//           return clipper->GetOutput();
     // 1. 创建隐式函数对象
     auto regionImplicit = vtkSmartPointer<vtkImplicitBoolean>::New();
     regionImplicit->SetOperationTypeToIntersection();  // 所有面都为必须满足
@@ -2859,8 +2576,8 @@ vtkSmartPointer<vtkUnstructuredGrid> TecplotWidget::clipWithSixSurfaces(
 //    result->DeepCopy(clipper->GetOutput());
 //    qInfo()<<"function return result";
 //    return result;
-               qint64 elapsed = timer.elapsed();
-               qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
+               //qint64 elapsed = timer.elapsed();
+               //qInfo() << "clipWithSixSurfaces done in" << elapsed << "ms";
     return clipper->GetOutput();
 }
 vtkSmartPointer<vtkUnstructuredGrid> TecplotWidget::ExtractConnectedRegionWithP1(
@@ -2890,6 +2607,85 @@ vtkSmartPointer<vtkUnstructuredGrid> TecplotWidget::ExtractConnectedRegionWithP1
 
     return result;
 }
+QStringList TecplotWidget::RotateAndCopyActor(QString actorName, int copies,double angle, char axis) {
+    QStringList resultNames;
+    std::string baseName = actorName.toStdString();
+
+    // 获取原始actor
+    if (m_actorsList.find(baseName) == m_actorsList.end()) {
+        qWarning() << "Actor not found:" << actorName;
+        return resultNames;
+    }
+    vtkActor* originalActor = m_actorsList[baseName];
+    vtkDataSet* originalData = vtkDataSet::SafeDownCast(originalActor->GetMapper()->GetInput());
+
+    // 存储原始名称
+    resultNames << actorName;
+
+    // 创建旋转后的副本
+    for (int i = 1; i < copies; i++) {
+        double currentAngle = angle * i;
+
+        // 创建旋转变换
+        vtkSmartPointer<vtkTransform> transform = CreateRotationTransform(axis, currentAngle);
+
+        // 应用变换
+        vtkSmartPointer<vtkTransformFilter> transformFilter = vtkSmartPointer<vtkTransformFilter>::New();
+        transformFilter->SetInputData(originalData);
+        transformFilter->SetTransform(transform);
+        transformFilter->Update();
+
+        // 创建新actor
+        vtkSmartPointer<vtkDataSetMapper> newMapper = vtkSmartPointer<vtkDataSetMapper>::New();
+        newMapper->SetInputData(transformFilter->GetOutput());
+
+        vtkSmartPointer<vtkActor> newActor = vtkSmartPointer<vtkActor>::New();
+        newActor->SetMapper(newMapper);
+
+        // 复制原始actor属性
+        newActor->GetProperty()->DeepCopy(originalActor->GetProperty());
+
+        // 生成唯一名称
+        std::string newName = baseName + "_Rotated_" + std::to_string(i);
+        QString qNewName = QString::fromStdString(newName);
+
+        // 添加到系统
+        m_actorsList[newName] = newActor;
+        m_actorsStatus[newName] = true;
+        m_renderer->AddActor(newActor);
+        resultNames << qNewName;
+    }
+
+    m_renderWindow->Render();
+    return resultNames;
+}
+
+vtkSmartPointer<vtkTransform> TecplotWidget::CreateRotationTransform(char axis, double angle) {
+    auto transform = vtkSmartPointer<vtkTransform>::New();
+
+    switch (std::toupper(axis)) {
+    case 'X':
+        transform->RotateX(angle);
+        break;
+    case 'Y':
+        transform->RotateY(angle);
+        break;
+    case 'Z':
+        transform->RotateZ(angle);
+        break;
+    default:
+        qWarning() << "Invalid rotation axis:" << axis << "using X axis instead";
+        transform->RotateX(angle);
+    }
+
+    return transform;
+}
+/***************************************
+ * ****************************************
+ * ***********旋转复制实现**********
+ * *********************************************
+ * *********************************/
+
 /***************************************************************************
  ***************************************************************************
  ***************************************************************************
@@ -2964,35 +2760,35 @@ int Contour::AddEntry(double value)
     this->m_contourFilter->SetNumberOfContours(this->m_valueNum); // 显式设置等值数量
     this->m_contourFilter->Update();
     this->m_contourFilter->Modified();
-    // 调试输出
-        std::cout << "Contour " << m_contourName << " - Added value: " << value
-                  << ", Number of contours: " << this->m_contourFilter->GetNumberOfContours() << std::endl;
-        for (int i = 0; i < this->m_valueNum; ++i) {
-            std::cout << "Contour value " << i << ": " << this->m_contourFilter->GetValue(i) << std::endl;
-        }
-        // 调试：打印 vtkContourFilter 输出的点数据
-        // 获取 ContourFilter 的输出
-           vtkSmartPointer<vtkPolyData> contourOutput = this->m_contourFilter->GetOutput();
-           if (!contourOutput || contourOutput->GetNumberOfPoints() == 0) {
-               std::cerr << "Error: ContourFilter output is empty!" << std::endl;
-               return -1;
-           }
+//    // 调试输出
+//        std::cout << "Contour " << m_contourName << " - Added value: " << value
+//                  << ", Number of contours: " << this->m_contourFilter->GetNumberOfContours() << std::endl;
+//        for (int i = 0; i < this->m_valueNum; ++i) {
+//            std::cout << "Contour value " << i << ": " << this->m_contourFilter->GetValue(i) << std::endl;
+//        }
+//        // 调试：打印 vtkContourFilter 输出的点数据
+//        // 获取 ContourFilter 的输出
+//           vtkSmartPointer<vtkPolyData> contourOutput = this->m_contourFilter->GetOutput();
+//           if (!contourOutput || contourOutput->GetNumberOfPoints() == 0) {
+//               std::cerr << "Error: ContourFilter output is empty!" << std::endl;
+//               return -1;
+//           }
 
-           // 获取 PointData
-           vtkSmartPointer<vtkPointData> pointData = contourOutput->GetPointData();
-           std::cout << "ContourFilter Output PointData Arrays: " << pointData->GetNumberOfArrays() << std::endl;
+//           // 获取 PointData
+//           vtkSmartPointer<vtkPointData> pointData = contourOutput->GetPointData();
+//           std::cout << "ContourFilter Output PointData Arrays: " << pointData->GetNumberOfArrays() << std::endl;
 
-           for (int i = 0; i < pointData->GetNumberOfArrays(); ++i) {
-               vtkSmartPointer<vtkDataArray> dataArray = pointData->GetArray(i);
-               if (dataArray) {
-                   std::cout << "Array " << i << ": " << (dataArray->GetName() ? dataArray->GetName() : "NULL");
+//           for (int i = 0; i < pointData->GetNumberOfArrays(); ++i) {
+//               vtkSmartPointer<vtkDataArray> dataArray = pointData->GetArray(i);
+//               if (dataArray) {
+//                   std::cout << "Array " << i << ": " << (dataArray->GetName() ? dataArray->GetName() : "NULL");
 
-                   // 获取数据范围
-                   double range[2];
-                   dataArray->GetRange(range);
-                   std::cout << "  | Range: [" << range[0] << ", " << range[1] << "]" << std::endl;
-               }
-           }
+//                   // 获取数据范围
+//                   double range[2];
+//                   dataArray->GetRange(range);
+//                   std::cout << "  | Range: [" << range[0] << ", " << range[1] << "]" << std::endl;
+//               }
+//           }
 
     return this->m_valueNum-1;//id从0开始
 }
@@ -3210,138 +3006,6 @@ void TecplotReader::cellsReader(const std::string& cellType, const std::string& 
 /***************************************************************************************
  *****************************数据读入tecplotreader具体实现********************************
  ***************************************************************************************/
-//vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnstructuredGrid> inputGrid, double tolerance) {
-//    if (!inputGrid) {
-//        std::cerr << "Error: Input grid is null!" << std::endl;
-//        return nullptr;
-//    }
-
-//    vtkPoints* points = inputGrid->GetPoints();
-//    if (!points) {
-//        std::cerr << "Error: Points object is null!" << std::endl;
-//        return nullptr;
-//    }
-
-//    vtkSmartPointer<vtkDataArray> oldPoints = points->GetData();
-//    if (!oldPoints) {
-//        std::cerr << "Error: Failed to get point data!" << std::endl;
-//        return nullptr;
-//    }
-//    int numOldPoints = oldPoints->GetNumberOfTuples();
-//    std::cout << "Point data type: " << oldPoints->GetDataTypeAsString() << std::endl;
-
-//    // 阶段1: 构建旧点到新点的索引映射
-//    using HashKey = std::tuple<int, int, int>;
-//    std::map<HashKey, int> hashBuckets;
-//    std::vector<int> pointMap(numOldPoints);
-//    std::vector<double> newPointsList;
-
-//    double point[3];
-//    for (int oldIdx = 0; oldIdx < numOldPoints; oldIdx++) {
-//        oldPoints->GetTuple(oldIdx, point);
-//        HashKey hashKey(
-//            static_cast<int>(std::round(point[0] / tolerance)),
-//            static_cast<int>(std::round(point[1] / tolerance)),
-//            static_cast<int>(std::round(point[2] / tolerance))
-//        );
-
-//        if (hashBuckets.find(hashKey) == hashBuckets.end()) {
-//            int newIdx = newPointsList.size() / 3;
-//            newPointsList.push_back(point[0]);
-//            newPointsList.push_back(point[1]);
-//            newPointsList.push_back(point[2]);
-//            hashBuckets[hashKey] = newIdx;
-//            pointMap[oldIdx] = newIdx;
-//        }
-//        else {
-//            pointMap[oldIdx] = hashBuckets[hashKey];
-//        }
-//    }
-
-//    // 阶段2: 重建去重后的点集
-//    vtkSmartPointer<vtkPoints> newPoints = vtkSmartPointer<vtkPoints>::New();
-//    vtkSmartPointer<vtkDoubleArray> newPointsData = vtkSmartPointer<vtkDoubleArray>::New();
-//    newPointsData->SetNumberOfComponents(3);
-//    newPointsData->SetNumberOfTuples(newPointsList.size() / 3);
-//    for (size_t i = 0; i < newPointsList.size() / 3; i++) {
-//        newPointsData->SetTuple(i, &newPointsList[i * 3]);
-//    }
-//    newPoints->SetData(newPointsData);
-//    std::cout << "New points created: " << newPoints->GetNumberOfPoints() << std::endl;
-
-//    // 阶段3: 重建单元并过滤重复单元
-//    vtkSmartPointer<vtkCellArray> cells = inputGrid->GetCells();
-//    if (!cells) {
-//        std::cerr << "Error: No cells in input grid!" << std::endl;
-//        return nullptr;
-//    }
-
-//    vtkSmartPointer<vtkDataArray> offsets = cells->GetOffsetsArray();
-//    vtkSmartPointer<vtkDataArray> connectivity = cells->GetConnectivityArray();
-//    if (!offsets) {
-//        std::cerr << "Error: Failed to get offsets array!" << std::endl;
-//        return nullptr;
-//    }
-//    if (!connectivity) {
-//        std::cerr << "Error: Failed to get connectivity array!" << std::endl;
-//        return nullptr;
-//    }
-
-//    std::cout << "Offsets data type: " << offsets->GetDataTypeAsString() << std::endl;
-//    std::cout << "Connectivity data type: " << connectivity->GetDataTypeAsString() << std::endl;
-
-//    std::vector<vtkIdType> newConnectivity(connectivity->GetNumberOfTuples());
-//    vtkSmartPointer<vtkUnsignedCharArray> oldCellTypes = inputGrid->GetCellTypesArray();
-//    std::vector<unsigned char> newCellTypes;
-
-//    for (vtkIdType i = 0; i < connectivity->GetNumberOfTuples(); i++) {
-//        newConnectivity[i] = pointMap[static_cast<int>(connectivity->GetTuple1(i))];
-//    }
-
-//    using CellTuple = std::vector<vtkIdType>;
-//    std::set<CellTuple> cellSet;
-//    std::vector<CellTuple> uniqueCells;
-
-//    for (vtkIdType i = 0; i < offsets->GetNumberOfTuples() - 1; i++) {
-//        vtkIdType start = static_cast<vtkIdType>(offsets->GetTuple1(i));
-//        vtkIdType end = static_cast<vtkIdType>(offsets->GetTuple1(i + 1));
-//        if (start < 0 || end > static_cast<vtkIdType>(newConnectivity.size()) || start >= end) {
-//            std::cerr << "Error: Invalid cell offsets at index " << i << std::endl;
-//            continue;
-//        }
-//        CellTuple cellTuple(newConnectivity.begin() + start, newConnectivity.begin() + end);
-//        if (cellSet.find(cellTuple) == cellSet.end()) {
-//            cellSet.insert(cellTuple);
-//            uniqueCells.push_back(cellTuple);
-//            newCellTypes.push_back(oldCellTypes->GetValue(i));
-//        }
-//    }
-//    std::cout << "Unique cells created: " << uniqueCells.size() << std::endl;
-
-//    // 阶段4: 构建输出网格
-//    vtkSmartPointer<vtkUnstructuredGrid> outputGrid =
-//        vtkSmartPointer<vtkUnstructuredGrid>::New();
-//    outputGrid->SetPoints(newPoints);
-
-//    vtkSmartPointer<vtkCellArray> cellArray = vtkSmartPointer<vtkCellArray>::New();
-//    for (const auto& cell : uniqueCells) {
-//        cellArray->InsertNextCell(cell.size(), cell.data());
-//    }
-
-//    vtkSmartPointer<vtkUnsignedCharArray> cellTypes = vtkSmartPointer<vtkUnsignedCharArray>::New();
-//    cellTypes->SetNumberOfTuples(uniqueCells.size());
-//    for (size_t i = 0; i < uniqueCells.size(); i++) {
-//        cellTypes->SetValue(i, newCellTypes[i]);
-//    }
-
-//    outputGrid->SetCells(cellTypes, cellArray);
-//    std::cout << "Output grid cells set: " << outputGrid->GetNumberOfCells() << std::endl;
-
-//    std::cout << "Before return - Points: " << outputGrid->GetNumberOfPoints() << std::endl;
-//    std::cout << "Before return - Cells: " << outputGrid->GetNumberOfCells() << std::endl;
-
-//    return outputGrid;
-//}
 vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnstructuredGrid> inputGrid, double tolerance) {
     if (!inputGrid) {
         std::cerr << "Error: Input grid is null!" << std::endl;
@@ -3360,7 +3024,6 @@ vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnst
         return nullptr;
     }
     int numOldPoints = oldPoints->GetNumberOfTuples();
-    //std::cout << "Point data type: " << oldPoints->GetDataTypeAsString() << std::endl;
 
     // 获取原始的 PointData
     vtkSmartPointer<vtkPointData> oldPointData = inputGrid->GetPointData();
@@ -3404,7 +3067,6 @@ vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnst
         newPointsData->SetTuple(i, &newPointsList[i * 3]);
     }
     newPoints->SetData(newPointsData);
-    //std::cout << "New points created: " << newPoints->GetNumberOfPoints() << std::endl;
 
     // 阶段3: 重建去重后的 PointData，排除 "vtkOriginalPointIds"
     vtkSmartPointer<vtkPointData> newPointData = vtkSmartPointer<vtkPointData>::New();
@@ -3416,7 +3078,6 @@ vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnst
 
             // 跳过 "vtkOriginalPointIds"
             if (oldArray->GetName() && strcmp(oldArray->GetName(), "vtkOriginalPointIds") == 0) {
-                //std::cout << "Skipping vtkOriginalPointIds array" << std::endl;
                 continue;
             }
 
@@ -3456,8 +3117,6 @@ vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnst
         return nullptr;
     }
 
-    //std::cout << "Offsets data type: " << offsets->GetDataTypeAsString() << std::endl;
-    //std::cout << "Connectivity data type: " << connectivity->GetDataTypeAsString() << std::endl;
 
     std::vector<vtkIdType> newConnectivity(connectivity->GetNumberOfTuples());
     vtkSmartPointer<vtkUnsignedCharArray> oldCellTypes = inputGrid->GetCellTypesArray();
@@ -3485,8 +3144,6 @@ vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnst
             newCellTypes.push_back(oldCellTypes->GetValue(i));
         }
     }
-    //std::cout << "Unique cells created: " << uniqueCells.size() << std::endl;
-
     // 阶段5: 构建输出网格
     vtkSmartPointer<vtkUnstructuredGrid> outputGrid = vtkSmartPointer<vtkUnstructuredGrid>::New();
     outputGrid->SetPoints(newPoints);
@@ -3506,10 +3163,6 @@ vtkSmartPointer<vtkUnstructuredGrid> manualRemoveOverlap(vtkSmartPointer<vtkUnst
     }
 
     outputGrid->SetCells(cellTypes, cellArray);
-    //std::cout << "Output grid cells set: " << outputGrid->GetNumberOfCells() << std::endl;
-
-    //std::cout << "Before return - Points: " << outputGrid->GetNumberOfPoints() << std::endl;
-    //std::cout << "Before return - Cells: " << outputGrid->GetNumberOfCells() << std::endl;
 
     return outputGrid;
 }
@@ -3564,7 +3217,6 @@ vtkMultiBlockDataSet* TecplotReader::ReadTecplotData(const std::string &fileName
 
     auto thePoints = vtkSmartPointer<vtkPoints>::New();
     std::vector<vtkSmartPointer<vtkFloatArray>> zoneData;
-    //auto multiBlock = vtkSmartPointer<vtkMultiBlockDataSet>::New();
     auto multiBlock = vtkMultiBlockDataSet::New();
     auto sharedPointData = vtkSmartPointer<vtkPointData>::New();
     std::vector<vtkSmartPointer<vtkUnstructuredGrid>> rawGrids;
@@ -3668,8 +3320,6 @@ vtkMultiBlockDataSet* TecplotReader::ReadTecplotData(const std::string &fileName
                             zoneData.push_back(theArray);
                             theArray->Delete();
                         }
-                        //qInfo()<<"varNum:"<<varNum;
-                        //qInfo()<<"ZoneDataSize"<<zoneData.size();
                         pointsReader(0, line, varNum, zoneData, thePoints);
 
                         for (int i = 1; i < nodeNum; i++) {
@@ -3746,11 +3396,6 @@ vtkMultiBlockDataSet* TecplotReader::ReadTecplotData(const std::string &fileName
             std::getline(file, line);
             cellsReader(zoneCellType[zoneId], line, ug);
         }
-//        vtkSmartPointer<vtkRemoveUnusedPoints> removeFilter = vtkSmartPointer<vtkRemoveUnusedPoints>::New();
-//        removeFilter->SetInputData(ug);
-//        removeFilter->Update();
-//        auto outputGrid = manualRemoveOverlap(removeFilter->GetOutput());
-        //multiBlock->SetBlock(zoneId, outputGrid);
         rawGrids.push_back(ug);
         multiBlock->SetBlock(zoneId, ug);
         multiBlock->GetMetaData(zoneId)->Set(vtkCompositeDataSet::NAME(), zoneTitle[zoneId].c_str());
@@ -3779,304 +3424,7 @@ vtkMultiBlockDataSet* TecplotReader::ReadTecplotData(const std::string &fileName
         }
     }
 
-    //clock_t end_time = clock();
-    //std::cout << "总处理时间（含去重）：" << (end_time - start_time) / (double)CLOCKS_PER_SEC << "s" << std::endl;
-    //qInfo()<<multiBlock->GetNumberOfBlocks();
-    //qInfo()<<vtkUnstructuredGrid::SafeDownCast(multiBlock->GetBlock(0))->GetPointData()->GetNumberOfArrays();
     return multiBlock;
 }
-//vtkSmartPointer<vtkMultiBlockDataSet> TecplotReader::ReadTecplotData(const std::string &fileName) {
-//    //clock_t start_time = clock();
 
-//    std::ifstream file(fileName);
-//    if (!file.is_open()) {
-//        std::cerr << "Failed to open file: " << fileName << std::endl;
-//        return nullptr;
-//    }
-
-//    std::string line;
-//    std::string currentToken;
-
-//    std::string title;
-//    int solutiontime = -1;
-//    int zoneNum = 0;
-//    int nodeNum = 0; //the number of points
-
-//    std::vector<std::string> varName;
-//    std::vector<std::string> zoneTitle;
-//    std::vector<int> zoneCellNum;
-//    std::vector<std::string> zoneCellType;
-
-//    auto thePoints = vtkSmartPointer<vtkPoints>::New();
-//    std::vector<vtkSmartPointer<vtkFloatArray>> zoneData;
-//    vtkSmartPointer<vtkMultiBlockDataSet> multiBlock = vtkSmartPointer<vtkMultiBlockDataSet>::New();
-//    auto sharedPointData = vtkSmartPointer<vtkPointData>::New();
-//    std::vector<vtkSmartPointer<vtkUnstructuredGrid>> rawGrids;
-
-//    std::vector<char> buffer(1024 * 1024);
-//    file.rdbuf()->pubsetbuf(buffer.data(), buffer.size());
-//    std::cin.tie(nullptr);
-//    std::ios_base::sync_with_stdio(false);
-
-//    bool pointsOK = false;
-//    while (std::getline(file, line))
-//    {
-//        if (line.empty()) continue;
-//        if (!pointsOK)
-//        {
-//            if (line.find("TITLE") != std::string::npos||line.find("ITLE") != std::string::npos)
-//            {
-//                int pos1 = line.find("\"");
-//                int pos2 = line.find("\"", pos1 + 1);
-//                title = line.substr(pos1 + 1, pos2 - pos1 - 1);
-//                continue;
-//            }
-
-//            if (line.find("VARIABLES") != std::string::npos)
-//            {
-//                size_t pos1 = line.find("\"");
-//                size_t pos2 = line.find("\"", pos1 + 1);
-//                std::string tempVarName;
-//                while (pos2 != std::string::npos) {
-//                    tempVarName = line.substr(pos1 + 1, pos2 - pos1 - 1);
-//                    varName.push_back(tempVarName);
-//                    if (pos2 == line.size() - 1) break;
-//                    pos1 = line.find("\"", pos2 + 1);
-//                    pos2 = line.find("\"", pos1 + 1);
-//                }
-//                continue;
-//            }
-
-//            if (line.find("solutiontime") != std::string::npos&& line.find("ZONE") == std::string::npos)
-//            {
-//                std::istringstream iss(line);
-//                while (iss >> currentToken) {
-//                    if (isdigit(currentToken[0]))
-//                    {
-//                        solutiontime = std::stoi(currentToken);
-//                        break;
-//                    }
-//                }
-//                continue; //
-//            }
-
-//            if (line.find("ZONE") != std::string::npos)
-//            {
-//                zoneNum++;
-//                std::replace(line.begin(), line.end(), '=', ' ');
-//                std::replace(line.begin(), line.end(), ',', ' ');
-//                std::replace(line.begin(), line.end(), '"', ' ');
-//                std::istringstream iss(line);
-
-//                while (iss >> currentToken)
-//                {
-//                    if (currentToken == "T")
-//                    {
-//                        iss >> currentToken;
-//                        //std::cout <<"T=" <<currentToken << std::endl;
-//                        zoneTitle.push_back(currentToken);
-//                    }
-//                    else if (currentToken == "N")
-//                    {
-//                        iss >> nodeNum;
-//                        //std::cout <<"N="<< nodeNum << std::endl;
-//                    }
-//                    else if (currentToken == "E")
-//                    {
-//                        iss >> currentToken;
-//                        //std::cout <<"E="<< currentToken << std::endl;
-//                        zoneCellNum.push_back(std::stoi(currentToken));
-//                    }
-//                    else if (currentToken == "ZONETYPE")
-//                    {
-//                        iss >> currentToken;
-//                        zoneCellType.push_back(currentToken);
-//                    } else if (currentToken == "solutiontime") {
-//                        iss >> currentToken;
-//                        if (std::isdigit(currentToken[0])) {
-//                            solutiontime = std::stoi(currentToken);
-//                        }
-//                    }
-//                }
-//                // 读取下一行，应该是数据行
-//                while (std::getline(file, line) && !line.empty()) {
-//                    std::istringstream iss(line);
-//                    iss >> currentToken;
-
-//                    if (line.find("solutiontime") != std::string::npos) {
-//                        while (iss >> currentToken) {
-//                            if (std::isdigit(currentToken[0])) {
-//                                solutiontime = std::stoi(currentToken);
-//                                break;
-//                            }
-//                        }
-//                        continue; // 读取下一行
-//                    }
-
-//                    if (currentToken.find("ZONE") == std::string::npos &&
-//                        (std::isdigit(currentToken[0]) || currentToken[0] == '-')) {
-//                        // 是数据行，开始读取点数据
-//                        int varNum = varName.size();
-//                        for (int i = 0; i < varNum; i++) {
-//                            vtkFloatArray* theArray = vtkFloatArray::New();
-//                            theArray->SetNumberOfTuples(nodeNum);
-//                            theArray->SetName(varName[i].c_str());
-//                            zoneData.push_back(theArray);
-//                            theArray->Delete();
-//                        }
-//                        pointsReader(0, line, varNum, zoneData, thePoints);
-
-//                        for (int i = 1; i < nodeNum; i++) {
-//                            std::getline(file, line);
-//                            pointsReader(i, line, varNum, zoneData, thePoints);
-//                        }
-//                        pointsOK = true;
-//                        break; // 数据读取完成，退出循环
-//                    }
-//                    else {
-//                        std::cerr << "Unexpected line after ZONE: " << line << std::endl;
-//                    }
-//                }
-//                continue;
-//            }
-
-////            int varNum = varName.size();
-
-////            for (int i = 0; i < varNum; i++) {
-////                vtkFloatArray* theArray = vtkFloatArray::New();
-////                theArray->SetNumberOfTuples(nodeNum);
-////                theArray->SetName(varName[i].c_str());
-////                zoneData.push_back(theArray);
-////                theArray->Delete();
-////            }
-////            pointsReader(0, line, varNum, zoneData, thePoints);
-
-
-////            for (int i = 1; i < nodeNum; i++)
-////            {
-////                std::getline(file, line);
-////                pointsReader(i, line, varNum, zoneData, thePoints);
-////            }
-////            pointsOK = true;
-////            continue;
-////        }
-//        }
-//        if (line.find("ZONE") != std::string::npos)
-//        {
-//            zoneNum++;
-
-//            std::replace(line.begin(), line.end(), '=', ' ');
-//            std::replace(line.begin(), line.end(), '"', ' ');
-//            std::replace(line.begin(), line.end(), ',', ' ');
-//            std::istringstream iss(line);
-//            //std::cout << line << std::endl;
-//            while (iss >> currentToken)
-//            {
-//                if (currentToken == "T")
-//                {
-//                    iss >> currentToken;
-//                    //std::cout << currentToken << std::endl;
-//                    zoneTitle.push_back(currentToken);
-//                }
-//                else if (currentToken == "E")
-//                {
-//                    iss >> currentToken;
-//                    //std::cout << currentToken << std::endl;
-//                    zoneCellNum.push_back(std::stoi(currentToken));
-//                }
-//                else if (currentToken == "ZONETYPE")
-//                {
-//                    iss >> currentToken;
-//                    zoneCellType.push_back(currentToken);
-//                }
-//            }
-//            continue;
-//        }
-
-//        auto ug = vtkSmartPointer<vtkUnstructuredGrid>::New();
-//        ug->SetPoints(thePoints);
-
-//        if (zoneNum == 1) {
-//            bool hasVelocity = false;
-//            for (auto& data : zoneData) {
-//                if(strcmp(data->GetName(), "vel") == 0 || strcmp(data->GetName(), "velocity") == 0)
-//                    hasVelocity = true;
-//                ug->GetPointData()->AddArray(data);
-//            }
-//            if(!hasVelocity)
-//            {
-//                auto calculator=vtkSmartPointer<vtkArrayCalculator>::New();
-//                //如果没有velocity属性，就进行添加
-//                calculator->SetInputData(ug);
-//                calculator->AddScalarArrayName("u");
-//                calculator->AddScalarArrayName("v");
-//                calculator->AddScalarArrayName("w");
-//                calculator->SetResultArrayName("velocity");
-//                calculator->SetFunction("u*iHat + v*jHat + w*kHat");
-//                calculator->Update();
-//                vtkDataArray* velocityArray = calculator->GetUnstructuredGridOutput()->GetPointData()->GetArray("velocity");
-//                ug->GetPointData()->AddArray(velocityArray);
-//            }
-//            sharedPointData = ug->GetPointData();
-//        }
-//        else {
-//            //ug->GetPointData()->ShallowCopy(sharedPointData);
-//            ug->GetPointData()->DeepCopy(sharedPointData);
-//        }
-
-//        int zoneId = zoneNum - 1;
-//        //std::cout << "zoneId = " << zoneId << std::endl;
-//        cellsReader(zoneCellType[zoneId], line, ug);
-//        for (int i = 1; i < zoneCellNum[zoneId]; i++)
-//        {
-//            std::getline(file, line);
-//            cellsReader(zoneCellType[zoneId], line, ug);
-//        }
-
-//        rawGrids.push_back(ug);
-//        multiBlock->SetBlock(zoneId, ug);
-//        multiBlock->GetMetaData(zoneId)->Set(vtkCompositeDataSet::NAME(), zoneTitle[zoneId].c_str());
-//    }
-//     file.close();
-////     // 统一处理所有 zone 的去重
-////     std::vector<vtkSmartPointer<vtkUnstructuredGrid>> cleanedGrids(zoneNum);
-////     std::mutex mtx;
-
-////     std::vector<std::thread> threads;
-////     for (int i = 0; i < zoneNum; i++) {
-////         threads.emplace_back(processZone, rawGrids[i], std::ref(cleanedGrids[i]), 1e-6, std::ref(mtx));
-////     }
-
-////     for (auto& thread : threads) {
-////         thread.join();
-////     }
-
-////     for (int i = 0; i < zoneNum; i++) {
-////         if (cleanedGrids[i]) {
-////             multiBlock->SetBlock(i, cleanedGrids[i]);
-////         }
-////         else {
-////             std::cerr << "Failed to process zone " << i << std::endl;
-////         }
-////     }
-////    //clock_t end_time = clock();
-////    //std::cout << "" << (end_time - start_time) / (double)CLOCKS_PER_SEC << "s" << std::endl;
-////     try {
-////             auto multiBlock = vtkSmartPointer<vtkMultiBlockDataSet>::New();
-////             // ... 数据读取 ...
-////             std::cout << "Before threading - Blocks: " << multiBlock->GetNumberOfBlocks() << std::endl;
-////             for (int i = 0; i < zoneNum; i++) {
-////                 threads.emplace_back(processZone, rawGrids[i], std::ref(cleanedGrids[i]), 1e-6, std::ref(mtx));
-////             }
-////             for (auto& thread : threads) {
-////                 thread.join();
-////             }
-////             std::cout << "After threading - Blocks: " << multiBlock->GetNumberOfBlocks() << std::endl;
-////             return multiBlock;
-////         } catch (const std::exception& e) {
-////             std::cerr << "Error in ReadTecplotData: " << e.what() << std::endl;
-////             return nullptr;
-////         }
-//    return multiBlock;
-//}
 

@@ -14,14 +14,21 @@ Widget::Widget(QWidget *parent)
        //在当前widget上布局
        QVBoxLayout* layout = new QVBoxLayout(this);
        layout->addWidget(m_tecplotWidget);
-       m_tecplotWidget->SetFileName(R"(E:\VTK\data\ROTOR67-flow_sa_[8000]_1.plt)");
+       //m_tecplotWidget->SetFileName(R"(E:\VTK\data\ROTOR67-flow_sa_[8000]_1.plt)");
+       m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sa_[7500].plt)");
+
        auto actors=m_tecplotWidget->GetActorList();
        qInfo()<<actors;
-       for(auto actor:actors){
-           m_tecplotWidget->ActorVisibilityOff(actor);
-       }
-       m_tecplotWidget->ExtractS1("PA","PB","INLET","OUTLET","SHROUD","HUB","FLUID");
-                   /*"FLUID"
+//       for(auto actor:actors){
+//           m_tecplotWidget->ActorVisibilityOff(actor);
+//       }
+       m_tecplotWidget->ActorVisibilityOff("FlUID");
+       qInfo()<<m_tecplotWidget->GetPropertyList("SHROUD");
+       //测试下plt读入的问题
+
+       //测试s1面
+       //qInfo()<<m_tecplotWidget->ExtractS1("PA","PB","INLET","OUTLET","SHROUD","HUB","FLUID");
+                   /*"FLUID"s
             "INLET"
             "OUTLET"
             "P11"
@@ -117,20 +124,45 @@ Widget::Widget(QWidget *parent)
 ////       m_tecplotWidget->ActorVisibilityOn(sliceName);
 //       m_tecplotWidget->SetColorMapOn(sliceName,"p");
 
-       //m_tecplotWidget->SetFileName(R"(D:\Project\VTK_QT\data\ROTOR67-flow_sa_[8000]_1.dat)");//Actor list: ("FLUID", "HUB", "INLET", "OUTLET", "PA", "PB", "PS", "SHROUD", "SS", "TIP")
-//       /*************测试色阶关闭************/
-//       QStringList actors = m_tecplotWidget->GetActorList();
+       //m_tecplotWidget->SetFileName(R"(E:\VTK\data\ROTOR67-flow_sa_[8000]_1.dat)");//Actor list: ("FLUID", "HUB", "INLET", "OUTLET", "PA", "PB", "PS", "SHROUD", "SS", "TIP")
+       // m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sa_[7500].plt)");
+       //       /*************测试色阶关闭************/
+       //QStringList actors = m_tecplotWidget->GetActorList();
 //       for(QString& actor : actors) {
 //           qInfo()<<actor;
-//           m_tecplotWidget->ActorVisibilityOn(actor);
-//           m_tecplotWidget->SetColorMapOn(actor, "X");
+//           //m_tecplotWidget->ActorVisibilityOff(actor);
+//          // m_tecplotWidget->SetColorMapOn(actor, "X");
 //       }
-//       // 特殊处理FLUID Actor
-//       actors.removeOne("FLUID");
-//       m_tecplotWidget->HideScalarBars(actors);  // 修正拼写错误,从m_activeBars删除掉了，同时m_barsStatus置为true，visibility为off
-//       m_tecplotWidget->ActorVisibilityOn("FLUID");
-//       m_tecplotWidget->SetColorMapOn("FLUID", "X");
+//       m_tecplotWidget->ActorVisibilityOn("HUB");
+       //m_tecplotWidget->AddStreamTracer("HUB");
+//////       // 特殊处理FLUID Actor
+////       actors.removeOne("INLET");
+////       m_tecplotWidget->HideScalarBars(actors);  // 修正拼写错误,从m_activeBars删除掉了，同时m_barsStatus置为true，visibility为off
+////       m_tecplotWidget->ActorVisibilityOn("FLUID");
+//       m_tecplotWidget->ActorVisibilityOn("HUB");
+//       m_tecplotWidget->SetColorMapOn("HUB", "T");
+//       m_tecplotWidget->SetColorLineOn("HUB");
 
+       //测试等值线的颜色映射
+//       auto bounds=m_tecplotWidget->GetPropertyBounds("SHROUD","T");
+//       qInfo()<<bounds[0]<<bounds[1];
+//       m_tecplotWidget->ActorVisibilityOn("SHROUD");
+//       auto surface=m_tecplotWidget->AddContour("SHROUD");
+//       m_tecplotWidget->SetContouredBy(surface,"T");
+//       m_tecplotWidget->AddEntry(surface,280);
+//       m_tecplotWidget->AddEntry(surface,300);
+//       m_tecplotWidget->SetColorMapOn(surface,"T");
+
+//       // 测试旋转复制
+//       m_tecplotWidget->ActorVisibilityOn("HUB");
+       //QStringList rotatedActors = m_tecplotWidget->RotateAndCopyActor("S1_PA_RelativeR=50%", 4, 30);
+       //qInfo()<<rotatedActors;
+       //m_tecplotWidget->SetColorMapOn("S1_PA_RelativeR=50%_Rotated_1","T");
+//       auto list=m_tecplotWidget->GetPropertyList("HUB_Rotated_1");
+//       qInfo()<<list;
+      // m_tecplotWidget->ActorVisibilityOn("SS");
+       //m_tecplotWidget->AddStreamTracer("SS");
+       // 结果：["Blade", "Blade_Rotated_1", "Blade_Rotated_2", "Blade_Rotated_3"]
 //       // 设置HUB-R Actor
 //       m_tecplotWidget->ActorVisibilityOn("HUB-R");
 //       m_tecplotWidget->SetColorMapOn("HUB-R","Y");

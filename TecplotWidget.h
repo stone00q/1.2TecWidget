@@ -568,6 +568,16 @@ public:
      * @details 判断周期面名和FLUID是否存在，内部调用 generate_s2_surface 实现。
      */
     QString ExtractS2(QString periodSurfaceName,QString fluidName="FLUID",int numSteps=10,double startAngle=0, double endAngle=360);
+
+    /**
+     * @brief RotateAndCopyActor
+     * @param actorName,要旋转复制的actor名称
+     * @param copies复制分数（包括actor
+     * @param angle（旋转角度
+     * @param axis（旋转轴，xyz，默认x轴
+     * @return 旋转后所有actor的名称列表（包括原始actor）
+     */
+    QStringList RotateAndCopyActor(QString actorName, int copies,double angle, char axis = 'X');
 private:
 
     //共享的
@@ -635,6 +645,9 @@ private:
     vtkSmartPointer<vtkUnstructuredGrid> ExtractConnectedRegionWithP1(
         vtkSmartPointer<vtkUnstructuredGrid>inputGrid,
         vtkSmartPointer<vtkUnstructuredGrid> p1Data);
+
+    //旋转复制
+    vtkSmartPointer<vtkTransform> CreateRotationTransform(char axis, double angle);
 
 };
 
