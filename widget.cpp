@@ -15,19 +15,31 @@ Widget::Widget(QWidget *parent)
        QVBoxLayout* layout = new QVBoxLayout(this);
        layout->addWidget(m_tecplotWidget);
        //m_tecplotWidget->SetFileName(R"(E:\VTK\data\ROTOR67-flow_sa_[8000]_1.plt)");
-       m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sa_[7500].plt)");
-
-       auto actors=m_tecplotWidget->GetActorList();
-       qInfo()<<actors;
+       //m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sa_[7500].plt)");
+       m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10005].dat)");
+//       m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
+//       auto actors=m_tecplotWidget->GetActorList();
+//       qInfo()<<actors;
 //       for(auto actor:actors){
 //           m_tecplotWidget->ActorVisibilityOff(actor);
 //       }
-       m_tecplotWidget->ActorVisibilityOff("FlUID");
-       qInfo()<<m_tecplotWidget->GetPropertyList("SHROUD");
+//       qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
+//       m_tecplotWidget->CalculateRelativeMachNumber("FLUID");
+//       qInfo()<<m_tecplotWidget->GetPropertyBounds("FLUID","RelativeMach");
+//       //m_tecplotWidget->ActorVisibilityOn("FLUID");
+//      // m_tecplotWidget->SetColorMapOn("FLUID","RelativeMach");
+//       m_tecplotWidget->CalculateEntropy("FLUID");
+//       qInfo()<<m_tecplotWidget->GetPropertyBounds("FLUID","Entropy");
+
+//       m_tecplotWidget->CalculateEntropy("HUB");
+//       m_tecplotWidget->ActorVisibilityOn("HUB");
+//       m_tecplotWidget->SetColorMapOn("HUB","Entropy");
+       //m_tecplotWidget->ActorVisibilityOff("FlUID");
+       //qInfo()<<m_tecplotWidget->GetPropertyList("SHROUD");
        //测试下plt读入的问题
 
        //测试s1面
-       //qInfo()<<m_tecplotWidget->ExtractS1("PA","PB","INLET","OUTLET","SHROUD","HUB","FLUID");
+        //qInfo()<<m_tecplotWidget->ExtractS1("PA","PB","INLET","OUTLET","SHROUD","HUB","FLUID");
                    /*"FLUID"s
             "INLET"
             "OUTLET"
@@ -153,10 +165,10 @@ Widget::Widget(QWidget *parent)
 //       m_tecplotWidget->AddEntry(surface,300);
 //       m_tecplotWidget->SetColorMapOn(surface,"T");
 
-//       // 测试旋转复制
+////       // 测试旋转复制
 //       m_tecplotWidget->ActorVisibilityOn("HUB");
-       //QStringList rotatedActors = m_tecplotWidget->RotateAndCopyActor("S1_PA_RelativeR=50%", 4, 30);
-       //qInfo()<<rotatedActors;
+//       QStringList rotatedActors = m_tecplotWidget->RotateAndCopyActor("S1_PA_RelativeR=50%", 4, 30);
+//       qInfo()<<rotatedActors;
        //m_tecplotWidget->SetColorMapOn("S1_PA_RelativeR=50%_Rotated_1","T");
 //       auto list=m_tecplotWidget->GetPropertyList("HUB_Rotated_1");
 //       qInfo()<<list;

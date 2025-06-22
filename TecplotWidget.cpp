@@ -49,6 +49,7 @@
 
 //plt读入相关
 #include <vtkVisItTecplotBinaryReader.h>
+#include <vtkArrayCalculator.h>
 VTK_MODULE_INIT(vtkRenderingOpenGL2);
 VTK_MODULE_INIT(vtkInteractionStyle);
 //VTK_MODULE_INIT(vtkRenderingContextOpenGL2);
@@ -1214,7 +1215,6 @@ void TecplotWidget::SetFileName(QString fileName)
             QMessageBox::warning(this, "Warning", "文件读取失败");
             return;
         }
-
         this->m_blockNum = this->m_multiBlock->GetNumberOfBlocks();
 
         std::string blockName = "";
@@ -1225,7 +1225,6 @@ void TecplotWidget::SetFileName(QString fileName)
 
             auto tmpMapper = vtkSmartPointer<vtkDataSetMapper>::New();
             auto tmpActor = vtkSmartPointer<vtkActor>::New();
-
             tmpMapper->SetInputData(vtkUnstructuredGrid::SafeDownCast(this->m_multiBlock->GetBlock(i)));
             tmpActor->SetMapper(tmpMapper);
             this->m_renderer->AddActor(tmpActor);
@@ -2607,6 +2606,13 @@ vtkSmartPointer<vtkUnstructuredGrid> TecplotWidget::ExtractConnectedRegionWithP1
 
     return result;
 }
+
+
+/***************************************
+ * ****************************************
+ * ***********旋转复制实现**********
+ * *********************************************
+ * *********************************/
 QStringList TecplotWidget::RotateAndCopyActor(QString actorName, int copies,double angle, char axis) {
     QStringList resultNames;
     std::string baseName = actorName.toStdString();
@@ -2680,11 +2686,232 @@ vtkSmartPointer<vtkTransform> TecplotWidget::CreateRotationTransform(char axis, 
 
     return transform;
 }
-/***************************************
- * ****************************************
- * ***********旋转复制实现**********
- * *********************************************
- * *********************************/
+/********************************************
+ * ********************************************
+ * ***********计算熵和相对马赫数**************
+ *********************************************
+ *********************************************/
+////逐个点计算属性
+//void TecplotWidget::CalculateRelativeMachNumber(QString actorName)
+//{
+//    // 获取指定actor的数据集
+//    std::string name = actorName.toStdString();
+//    if (m_actorsList.find(name) == m_actorsList.end()) {
+//        qWarning() << "Actor" << actorName << "does not exist!";
+//        return;
+//    }
+
+//    vtkActor* actor = m_actorsList[name];
+//    vtkDataSet* dataSet = vtkDataSet::SafeDownCast(actor->GetMapper()->GetInput());
+
+//    // 检查所需属性是否存在
+//    if (!dataSet->GetPointData()->HasArray("ur") ||
+//        !dataSet->GetPointData()->HasArray("vr") ||
+//        !dataSet->GetPointData()->HasArray("wr") ||
+//        !dataSet->GetPointData()->HasArray("T"))
+//    {
+//        qWarning() << "Required arrays (ur, vr, wr, T) not found for" << actorName;
+//        return;
+//    }
+
+//    // 获取点数据
+//    vtkPointData* pd = dataSet->GetPointData();
+//    vtkDataArray* urArray = pd->GetArray("ur");
+//    vtkDataArray* vrArray = pd->GetArray("vr");
+//    vtkDataArray* wrArray = pd->GetArray("wr");
+//    vtkDataArray* tArray = pd->GetArray("T");
+
+//    // 创建新数组存储结果
+//    vtkSmartPointer<vtkDoubleArray> machArray = vtkSmartPointer<vtkDoubleArray>::New();
+//    machArray->SetName("RelativeMach");
+//    machArray->SetNumberOfComponents(1);
+//    machArray->SetNumberOfTuples(dataSet->GetNumberOfPoints());
+
+//    // 常量定义
+//    const double gamma = 1.4;
+//    const double R = 287.0; // 气体常数
+
+//    // 计算每个点的相对马赫数
+//    for (vtkIdType i = 0; i < dataSet->GetNumberOfPoints(); ++i) {
+//        double ur = urArray->GetComponent(i, 0);
+//        double vr = vrArray->GetComponent(i, 0);
+//        double wr = wrArray->GetComponent(i, 0);
+//        double T = tArray->GetComponent(i, 0);
+
+//        // 计算相对速度大小
+//        double relVel = sqrt(ur*ur + vr*vr + wr*wr);
+
+//        // 计算声速
+//        double a = sqrt(gamma * R * T);
+
+//        // 计算马赫数
+//        double mach = relVel / a;
+
+//        machArray->SetValue(i, mach);
+//    }
+
+//    // 添加结果数组
+//    pd->AddArray(machArray);
+//    qInfo() << "Added RelativeMach array to" << actorName;
+//}
+
+//void TecplotWidget::CalculateEntropy(QString actorName)
+//{
+//    // 获取指定actor的数据集
+//    std::string name = actorName.toStdString();
+//    if (m_actorsList.find(name) == m_actorsList.end()) {
+//        qWarning() << "Actor" << actorName << "does not exist!";
+//        return;
+//    }
+
+//    vtkActor* actor = m_actorsList[name];
+//    vtkDataSet* dataSet = vtkDataSet::SafeDownCast(actor->GetMapper()->GetInput());
+
+//    // 检查所需属性是否存在
+//    if (!dataSet->GetPointData()->HasArray("p") ||
+//        !dataSet->GetPointData()->HasArray("rho"))
+//    {
+//        qWarning() << "Required arrays (p, rho) not found for" << actorName;
+//        return;
+//    }
+
+//    // 获取点数据
+//    vtkPointData* pd = dataSet->GetPointData();
+//    vtkDataArray* pArray = pd->GetArray("p");
+//    vtkDataArray* rhoArray = pd->GetArray("rho");
+
+//    // 创建新数组存储结果
+//    vtkSmartPointer<vtkDoubleArray> entropyArray = vtkSmartPointer<vtkDoubleArray>::New();
+//    entropyArray->SetName("Entropy");
+//    entropyArray->SetNumberOfComponents(1);
+//    entropyArray->SetNumberOfTuples(dataSet->GetNumberOfPoints());
+
+//    // 常量定义
+//    const double gamma = 1.4;
+//    const double R = 287.0;
+//    const double Cv = R / (gamma - 1.0);
+//    const double pref = 101325.0;  // 参考压力 (Pa)
+//    const double rhoref = 1.225;    // 参考密度 (kg/m³)
+
+//    // 计算每个点的熵
+//    for (vtkIdType i = 0; i < dataSet->GetNumberOfPoints(); ++i) {
+//        double p = pArray->GetComponent(i, 0);
+//        double rho = rhoArray->GetComponent(i, 0);
+
+//        // 避免除零和对数无效值
+//        double entropy = 0.0;
+//        if (p > 0 && rho > 0) {
+//            double p_ratio = p / pref;
+//            double rho_ratio = rho / rhoref;
+
+//            // 熵公式: S = Cv * ln(p/pref) / (rho/rhoref)^gamma
+//            entropy = Cv * log(p_ratio) / pow(rho_ratio, gamma);
+//        }
+
+//        entropyArray->SetValue(i, entropy);
+//    }
+
+//    // 添加结果数组
+//    pd->AddArray(entropyArray);
+//    qInfo() << "Added Entropy array to" << actorName;
+//}
+//vtkarraycalculator
+void TecplotWidget::CalculateRelativeMachNumber(QString actorName)
+{
+    // 获取指定actor的数据集
+    std::string name = actorName.toStdString();
+    if (m_actorsList.find(name) == m_actorsList.end()) {
+        qWarning() << "Actor" << actorName << "does not exist!";
+        return;
+    }
+
+    vtkActor* actor = m_actorsList[name];
+    vtkDataSet* dataSet = vtkDataSet::SafeDownCast(actor->GetMapper()->GetInput());
+
+    // 检查所需属性是否存在
+    if (!dataSet->GetPointData()->HasArray("ur") ||
+        !dataSet->GetPointData()->HasArray("vr") ||
+        !dataSet->GetPointData()->HasArray("wr") ||
+        !dataSet->GetPointData()->HasArray("T"))
+    {
+        qWarning() << "Required arrays (ur, vr, wr, T) not found for" << actorName;
+        return;
+    }
+
+    // 使用vtkArrayCalculator计算相对马赫数
+    auto calculator = vtkSmartPointer<vtkArrayCalculator>::New();
+    calculator->SetInputData(dataSet);
+
+    // 添加输入数组
+    calculator->AddScalarArrayName("ur");
+    calculator->AddScalarArrayName("vr");
+    calculator->AddScalarArrayName("wr");
+    calculator->AddScalarArrayName("T");
+
+    // 设置计算公式：sqrt(ur^2 + vr^2 + wr^2) / sqrt(1.4 * 287 * T)
+    calculator->SetFunction("sqrt(ur*ur + vr*vr + wr*wr) / sqrt(1.4 * 287 * T)");
+    calculator->SetResultArrayName("RelativeMach");
+    calculator->Update();
+
+    // 获取计算器的输出数据集
+    vtkDataSet* outputDataSet = vtkDataSet::SafeDownCast(calculator->GetOutput());
+        if (!outputDataSet) {
+            qWarning() << "Failed to get output as dataset for" << actorName;
+            return;
+        }
+    vtkDataArray* machArray = outputDataSet->GetPointData()->GetArray("RelativeMach");
+
+    // 将结果添加到原始数据集
+    dataSet->GetPointData()->AddArray(machArray);
+    //qInfo() << "Added RelativeMach array to" << actorName;
+}
+
+void TecplotWidget::CalculateEntropy(QString actorName)
+{
+    // 获取指定actor的数据集
+    std::string name = actorName.toStdString();
+    if (m_actorsList.find(name) == m_actorsList.end()) {
+        qWarning() << "Actor" << actorName << "does not exist!";
+        return;
+    }
+
+    vtkActor* actor = m_actorsList[name];
+    vtkDataSet* dataSet = vtkDataSet::SafeDownCast(actor->GetMapper()->GetInput());
+
+    // 检查所需属性是否存在
+    if (!dataSet->GetPointData()->HasArray("p") ||
+        !dataSet->GetPointData()->HasArray("rho"))
+    {
+        qWarning() << "Required arrays (p, rho) not found for" << actorName;
+        return;
+    }
+
+    // 使用vtkArrayCalculator计算熵
+    auto calculator = vtkSmartPointer<vtkArrayCalculator>::New();
+    calculator->SetInputData(dataSet);
+
+    // 添加输入数组
+    calculator->AddScalarArrayName("p");
+    calculator->AddScalarArrayName("rho");
+
+    // 设置计算公式：Cv * ln((p / pref) / (rho / rhoref)^γ)
+    // 其中 Cv = 287 / (1.4 - 1), γ = 1.4, pref = 101325, rhoref = 1.225
+    calculator->SetFunction("(287 / (1.4 - 1)) * log( (p / 101325.0) / pow(rho / 1.225, 1.4) )");
+    calculator->SetResultArrayName("Entropy");
+    calculator->Update();
+
+    // 使用 SafeDownCast 获取输出数据集
+       vtkDataSet* outputDataSet = vtkDataSet::SafeDownCast(calculator->GetOutput());
+       if (!outputDataSet) {
+           qWarning() << "Failed to get output as dataset for" << actorName;
+           return;
+       }
+
+       vtkDataArray* entropyArray = outputDataSet->GetPointData()->GetArray("Entropy");
+    // 将结果添加到原始数据集
+    dataSet->GetPointData()->AddArray(entropyArray);
+   // qInfo() << "Added Entropy array to" << actorName;
+}
 
 /***************************************************************************
  ***************************************************************************

@@ -578,6 +578,22 @@ public:
      * @return 旋转后所有actor的名称列表（包括原始actor）
      */
     QStringList RotateAndCopyActor(QString actorName, int copies,double angle, char axis = 'X');
+
+    /**
+       * @brief 计算相对马赫数
+       * @param actorName 需要进行计算的actor名称
+       * @details 使用属性"ur", "vr", "wr"（相对速度分量）和"T"（温度）计算相对马赫数，结果以"RelativeMach"加入属性列表
+       */
+      void CalculateRelativeMachNumber(QString actorName);
+
+      /**
+       * @brief 计算熵
+       * @param actorName 需要进行计算的actor名称
+       * @details 使用属性"p"（压力）和"rho"（密度）计算熵，结果以"Entropy"加入属性列表
+       * 取pref=101325 ，rhoref=1.225
+       */
+      void CalculateEntropy(QString actorName);
+
 private:
 
     //共享的
