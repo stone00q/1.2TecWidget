@@ -572,7 +572,7 @@ public:
     /**
      * @brief RotateAndCopyActor
      * @param actorName,要旋转复制的actor名称
-     * @param copies复制分数（包括actor
+     * @param copies复制分数
      * @param angle（旋转角度
      * @param axis（旋转轴，xyz，默认x轴
      * @return 旋转后所有actor的名称列表（包括原始actor）
@@ -582,7 +582,7 @@ public:
     /**
        * @brief 计算相对马赫数
        * @param actorName 需要进行计算的actor名称
-       * @details 使用属性"ur", "vr", "wr"（相对速度分量）和"T"（温度）计算相对马赫数，结果以"RelativeMach"加入属性列表
+       * @details 使用属性"ur", "vr", "wr"（相对速度分量）和"T"（温度）计算相对马赫数，结果以"Ma_rel"加入属性列表
        */
       void CalculateRelativeMachNumber(QString actorName);
 

@@ -2859,7 +2859,7 @@ void TecplotWidget::CalculateRelativeMachNumber(QString actorName)
             qWarning() << "Failed to get output as dataset for" << actorName;
             return;
         }
-    vtkDataArray* machArray = outputDataSet->GetPointData()->GetArray("RelativeMach");
+    vtkDataArray* machArray = outputDataSet->GetPointData()->GetArray("Ma_rel");
 
     // 将结果添加到原始数据集
     dataSet->GetPointData()->AddArray(machArray);
