@@ -46,7 +46,7 @@
 #include <stdexcept>
 #include <thread>
 #include <mutex>
-
+#include <vtkPolyDataWriter.h>
 //plt读入相关
 //#include <vtkVisItTecplotBinaryReader.h>
 #include <vtkArrayCalculator.h>
@@ -2913,6 +2913,148 @@ void TecplotWidget::CalculateEntropy(QString actorName)
    // qInfo() << "Added Entropy array to" << actorName;
 }
 
+/***************写出数据************************/
+bool TecplotWidget::SaveSliceData(QString sliceName, QString filePath,int format=1)
+{
+    std::string name=sliceName.toStdString();
+    std::string path=filePath.toStdString();
+    //1.检查切片是否存在
+    if(m_actorsList.find(name)==m_actorsList.end()){
+        qWarning()<<"Slice not found:"<<sliceName;
+        return false;
+    }
+
+    //2.获取切片的输出
+    auto sliceActor=m_actorsList[name];
+    auto sliceData=vtkPolyData::SafeDownCast(sliceActor->GetMapper()->GetInput()) ;
+    if(!sliceData||sliceData->GetNumberOfPoints()==0){
+        qWarning()<<"No data in slice: "<<sliceName;
+        return false;
+    }
+
+    //3.write out
+    bool success=false;
+    switch(format){
+    case 0:
+    {
+        path=path+".vtk";
+        vtkSmartPointer<vtkPolyDataWriter> writer=vtkSmartPointer<vtkPolyDataWriter>::New();
+        writer->SetFileName(path.c_str());
+        writer->SetInputData(sliceData);
+        writer->SetFileTypeToASCII();
+        //writer->SetDataModeToAscii();//vtkxmlpolydata+vtp后缀
+        success=(writer->Write()==1);
+        break;
+    }
+    case 1:
+    {
+        path=path+".dat";
+        std::ofstream outFile(path);
+        if (!outFile.is_open()) {
+            qWarning() << "Failed to open file for writing:" << filePath;
+            return false;
+        }
+
+        // 写Tecplot头部
+        outFile << "TITLE = \"" << name << " \"\n";
+        outFile << "VARIABLES = \"X\", \"Y\", \"Z\"";
+
+        // 添加属性变量名
+        vtkPointData* pd = sliceData->GetPointData();
+        for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
+            const char* arrayName = pd->GetArrayName(i);
+            // 跳过属性中的坐标和速度矢量
+                   if (arrayName && (strcmp(arrayName, "X") == 0 ||
+                                     strcmp(arrayName, "Y") == 0 ||
+                                     strcmp(arrayName, "Z") == 0||
+                                     strcmp(arrayName,"velocity")==0)) {
+                       continue;
+                   }
+            outFile << ", \"" << arrayName << "\"";
+        }
+        outFile << "\n";
+
+        // 写数据区域
+        outFile << "ZONE T=" << name << ", N=" << sliceData->GetNumberOfPoints()
+                       << ", E=" << sliceData->GetNumberOfCells()
+                       << ", DATAPACKING=POINT, ZONETYPE=";
+
+               // 确定单元类型
+               std::string zoneType = "FELINESEG";
+               if (sliceData->GetNumberOfCells() > 0) {
+                   vtkCell* cell = sliceData->GetCell(0);
+                   switch (cell->GetCellType()) {
+                   case VTK_TRIANGLE:
+                       zoneType = "FETRIANGLE";
+                       break;
+                   case VTK_QUAD:
+                       zoneType = "FEQUADRILATERAL";
+                       break;
+                   case VTK_TETRA:
+                       zoneType = "FETETRAHEDRON";
+                       break;
+                   case VTK_HEXAHEDRON:
+                       zoneType = "FEBRICK";
+                       break;
+                   }
+               }
+               outFile << zoneType << "\n";
+
+               // 写入点数据
+               vtkPoints* points = sliceData->GetPoints();
+               for (vtkIdType i = 0; i < points->GetNumberOfPoints(); i++) {
+                   double pt[3];
+                   points->GetPoint(i, pt);
+                   outFile << std::scientific << std::setprecision(9)
+                           << pt[0] << " " << pt[1] << " " << pt[2];
+
+                   // 写入属性值
+                   for (int j = 0; j < pd->GetNumberOfArrays(); j++) {
+                       vtkDataArray* array = pd->GetArray(j);
+                       const char* arrayName = array->GetName();
+
+                                   // 跳过坐标属性
+                                   if (arrayName && (strcmp(arrayName, "X") == 0 ||
+                                                     strcmp(arrayName, "Y") == 0 ||
+                                                     strcmp(arrayName, "Z") == 0||
+                                                     strcmp(arrayName,"velocity")==0)) {
+                                       continue;
+                                   }
+                       int numComponents = array->GetNumberOfComponents();
+                       for (int k = 0; k < numComponents; k++) {
+                           outFile << " " << array->GetComponent(i, k);
+                       }
+                   }
+                   outFile << "\n";
+               }
+               outFile<<"\n";
+
+               // 写入单元连接性
+               for (vtkIdType i = 0; i < sliceData->GetNumberOfCells(); i++) {
+                   vtkCell* cell = sliceData->GetCell(i);
+                   for (int j = 0; j < cell->GetNumberOfPoints(); j++) {
+                       // Tecplot索引从1开始
+                       outFile << (cell->GetPointId(j) +1) << " ";
+                   }
+                   outFile << "\n";
+               }
+
+               outFile.close();
+               success = true;
+               break;
+    }
+    default:
+        qWarning()<<"Unsupported format";
+        return false;
+    }
+
+
+
+    if(!success){
+       qWarning()<<"Failed to save slice data: "<<sliceName;
+    }
+    return success;
+}
 /***************************************************************************
  ***************************************************************************
  ***************************************************************************

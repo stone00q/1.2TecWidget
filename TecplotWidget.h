@@ -594,6 +594,16 @@ public:
        */
       void CalculateEntropy(QString actorName);
 
+      /**
+       * @brief SaveSliceData保存切片数据到文件
+       * @param sliceName切片名称（由AddSliceWidget返回的名称）
+       * @param filePath保存路径（含文件名，但不含后缀，后缀是根据format自动加上的）
+       * @param format,默认为1，0-vtp格式，1-dat格式
+       * @return bool保存成功返回true，失败返回false
+       * @details保存为ASCII格式的vtk polydata文件（.vtp），包含所有属性值
+       */
+      bool SaveSliceData(QString sliceName,QString filePath,int format);
+
 private:
 
     //共享的

@@ -94,6 +94,7 @@ vtkGUISupportQt-9.3d.lib\
 vtkInteractionStyle-9.3d.lib\
 vtkInteractionWidgets-9.3d.lib\
 vtkIOCore-9.3d.lib\
+vtkIOLegacy-9.3d.lib\
 vtkRenderingAnnotation-9.3d.lib\
 vtkRenderingCore-9.3d.lib\
 vtkRenderingFreeType-9.3d.lib\
@@ -119,6 +120,8 @@ vtkGUISupportQt-9.3.lib\
 vtkInteractionStyle-9.3.lib\
 vtkInteractionWidgets-9.3.lib\
 vtkIOCore-9.3.lib\
+vtkIOLegacy-9.3.lib\#VTKPOLYDATAWRITER need
+#vtkIOXML-9.3.lib\#vtkxmlpolydatawriter need
 vtkRenderingAnnotation-9.3.lib\
 vtkRenderingCore-9.3.lib\
 vtkRenderingFreeType-9.3.lib\

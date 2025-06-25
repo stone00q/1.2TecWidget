@@ -29,6 +29,9 @@ Widget::Widget(QWidget *parent)
        m_tecplotWidget->SliceByZPlane(sliceName,-0.2218);
        m_tecplotWidget->Slice(sliceName);
        m_tecplotWidget->HideSliceWidget(sliceName);
+       //m_tecplotWidget->SaveSliceData(sliceName,R"(E:\test.vtp)");
+       m_tecplotWidget->SaveSliceData(sliceName,R"(E:\gggg)",1);
+
 //       qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
 //       //测试相对马赫数
 //       m_tecplotWidget->CalculateRelativeMachNumber("FLUID");
