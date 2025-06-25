@@ -16,16 +16,23 @@ Widget::Widget(QWidget *parent)
        layout->addWidget(m_tecplotWidget);
        //m_tecplotWidget->SetFileName(R"(E:\VTK\data\ROTOR67-flow_sa_[8000]_1.plt)");
        //m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sa_[7500].plt)");
-       m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10005].dat)");
+       //m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10005].dat)");
+      // m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10].dat)");
+       m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
 //       m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
-//       auto actors=m_tecplotWidget->GetActorList();
-//       qInfo()<<actors;
-//       for(auto actor:actors){
-//           m_tecplotWidget->ActorVisibilityOff(actor);
-//       }
+       auto actors=m_tecplotWidget->GetActorList();
+       qInfo()<<actors;
+       for(auto actor:actors){
+           m_tecplotWidget->ActorVisibilityOff(actor);
+       }
+       QString sliceName=m_tecplotWidget->AddSliceWidget("BLADE");
+       m_tecplotWidget->SliceByZPlane(sliceName,-0.2218);
+       m_tecplotWidget->Slice(sliceName);
+       m_tecplotWidget->HideSliceWidget(sliceName);
 //       qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
+//       //测试相对马赫数
 //       m_tecplotWidget->CalculateRelativeMachNumber("FLUID");
-//       qInfo()<<m_tecplotWidget->GetPropertyBounds("FLUID","RelativeMach");
+//       qInfo()<<m_tecplotWidget->GetPropertyBounds("FLUID","Ma_rel");
 //       //m_tecplotWidget->ActorVisibilityOn("FLUID");
 //      // m_tecplotWidget->SetColorMapOn("FLUID","RelativeMach");
 //       m_tecplotWidget->CalculateEntropy("FLUID");

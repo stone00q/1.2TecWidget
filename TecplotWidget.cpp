@@ -48,7 +48,7 @@
 #include <mutex>
 
 //plt读入相关
-#include <vtkVisItTecplotBinaryReader.h>
+//#include <vtkVisItTecplotBinaryReader.h>
 #include <vtkArrayCalculator.h>
 VTK_MODULE_INIT(vtkRenderingOpenGL2);
 VTK_MODULE_INIT(vtkInteractionStyle);
@@ -1097,118 +1097,118 @@ void TecplotWidget::SetFileName(QString fileName)
 {
     std::string filename = fileName.toStdString();
 
-    if (filename.substr(filename.find_last_of('.') + 1) == "plt")
-    {
-        // 使用 ParaView 的 vtkVisItTecplotBinaryReader 读取 .plt
-        auto pltreader = vtkSmartPointer<vtkVisItTecplotBinaryReader>::New();
-        pltreader->SetFileName(filename.c_str());
-        pltreader->Update();
-        //qInfo()<<pltreader->GetNumberOfMeshArrays();
-        int numMeshes = pltreader->GetNumberOfMeshArrays();
-        //枚举所有mesh都是打开，还要枚举所有属性
-        int numPointArrays = pltreader->GetNumberOfPointArrays();
-        for (int i = 0; i < numMeshes; ++i) {
-            const char* meshName = pltreader->GetMeshArrayName(i);
-//            qInfo() << "MeshArray[" << i << "]:" << meshName
-//                    << " Status:" << pltreader->GetMeshArrayStatus(meshName);
+//    if (filename.substr(filename.find_last_of('.') + 1) == "plt")
+//    {
+//        // 使用 ParaView 的 vtkVisItTecplotBinaryReader 读取 .plt
+//        auto pltreader = vtkSmartPointer<vtkVisItTecplotBinaryReader>::New();
+//        pltreader->SetFileName(filename.c_str());
+//        pltreader->Update();
+//        //qInfo()<<pltreader->GetNumberOfMeshArrays();
+//        int numMeshes = pltreader->GetNumberOfMeshArrays();
+//        //枚举所有mesh都是打开，还要枚举所有属性
+//        int numPointArrays = pltreader->GetNumberOfPointArrays();
+//        for (int i = 0; i < numMeshes; ++i) {
+//            const char* meshName = pltreader->GetMeshArrayName(i);
+////            qInfo() << "MeshArray[" << i << "]:" << meshName
+////                    << " Status:" << pltreader->GetMeshArrayStatus(meshName);
 
-            // 2. 设置状态为“选中”
-            if(!pltreader->GetMeshArrayStatus(meshName)){
-                pltreader->SetMeshArrayStatus(meshName, 1);
-            }
+//            // 2. 设置状态为“选中”
+//            if(!pltreader->GetMeshArrayStatus(meshName)){
+//                pltreader->SetMeshArrayStatus(meshName, 1);
+//            }
 
 
-        }
-        for (int i = 0; i < numPointArrays; ++i) {
-            const char* arrayName = pltreader->GetPointArrayName(i);
-            if (!pltreader->GetPointArrayStatus(arrayName)) {
-                pltreader->SetPointArrayStatus(arrayName, 1);
-                //qInfo() << "[PointArray] 启用变量:" << arrayName;
-            }
-        }
-        pltreader->Update();
-        vtkMultiBlockDataSet* root = vtkMultiBlockDataSet::SafeDownCast(pltreader->GetOutput());
-        if (!root) {
-            QMessageBox::warning(this, "Warning", "无法读取 PLT 数据为 vtkMultiBlockDataSet");
-             return;
-            }
-        this->m_multiBlock = root;  // 保存引用
-        int actorCount = 0;
-        for (unsigned int meshIdx = 0; meshIdx < root->GetNumberOfBlocks(); ++meshIdx)
-            {
-                vtkDataObject* meshObj = root->GetBlock(meshIdx);
-                std::string meshName = "Mesh_" + std::to_string(meshIdx);
-                if (root->GetMetaData(meshIdx)->Has(vtkCompositeDataSet::NAME()))
-                    meshName = root->GetMetaData(meshIdx)->Get(vtkCompositeDataSet::NAME());
+//        }
+//        for (int i = 0; i < numPointArrays; ++i) {
+//            const char* arrayName = pltreader->GetPointArrayName(i);
+//            if (!pltreader->GetPointArrayStatus(arrayName)) {
+//                pltreader->SetPointArrayStatus(arrayName, 1);
+//                //qInfo() << "[PointArray] 启用变量:" << arrayName;
+//            }
+//        }
+//        pltreader->Update();
+//        vtkMultiBlockDataSet* root = vtkMultiBlockDataSet::SafeDownCast(pltreader->GetOutput());
+//        if (!root) {
+//            QMessageBox::warning(this, "Warning", "无法读取 PLT 数据为 vtkMultiBlockDataSet");
+//             return;
+//            }
+//        this->m_multiBlock = root;  // 保存引用
+//        int actorCount = 0;
+//        for (unsigned int meshIdx = 0; meshIdx < root->GetNumberOfBlocks(); ++meshIdx)
+//            {
+//                vtkDataObject* meshObj = root->GetBlock(meshIdx);
+//                std::string meshName = "Mesh_" + std::to_string(meshIdx);
+//                if (root->GetMetaData(meshIdx)->Has(vtkCompositeDataSet::NAME()))
+//                    meshName = root->GetMetaData(meshIdx)->Get(vtkCompositeDataSet::NAME());
 
-                vtkMultiBlockDataSet* meshBlock = vtkMultiBlockDataSet::SafeDownCast(meshObj);
-                if (!meshBlock) continue;
+//                vtkMultiBlockDataSet* meshBlock = vtkMultiBlockDataSet::SafeDownCast(meshObj);
+//                if (!meshBlock) continue;
 
-                for (unsigned int blockIdx = 0; blockIdx < meshBlock->GetNumberOfBlocks(); ++blockIdx)
-                {
-                    vtkDataObject* blockObj = meshBlock->GetBlock(blockIdx);
-                    std::string blockName = meshName + "_Block_" + std::to_string(blockIdx);
-                    if (meshBlock->GetMetaData(blockIdx)->Has(vtkCompositeDataSet::NAME()))
-                        blockName = meshBlock->GetMetaData(blockIdx)->Get(vtkCompositeDataSet::NAME());
+//                for (unsigned int blockIdx = 0; blockIdx < meshBlock->GetNumberOfBlocks(); ++blockIdx)
+//                {
+//                    vtkDataObject* blockObj = meshBlock->GetBlock(blockIdx);
+//                    std::string blockName = meshName + "_Block_" + std::to_string(blockIdx);
+//                    if (meshBlock->GetMetaData(blockIdx)->Has(vtkCompositeDataSet::NAME()))
+//                        blockName = meshBlock->GetMetaData(blockIdx)->Get(vtkCompositeDataSet::NAME());
 
-                    vtkUnstructuredGrid* dataset = vtkUnstructuredGrid::SafeDownCast(blockObj);
-                    if (!dataset) continue;
+//                    vtkUnstructuredGrid* dataset = vtkUnstructuredGrid::SafeDownCast(blockObj);
+//                    if (!dataset) continue;
 
-                    //去重
-                    //去除未使用点
-                    vtkSmartPointer<vtkRemoveUnusedPoints> removeFilter = vtkSmartPointer<vtkRemoveUnusedPoints>::New();
-                    removeFilter->SetInputData(dataset);
-                    removeFilter->Update();
+//                    //去重
+//                    //去除未使用点
+//                    vtkSmartPointer<vtkRemoveUnusedPoints> removeFilter = vtkSmartPointer<vtkRemoveUnusedPoints>::New();
+//                    removeFilter->SetInputData(dataset);
+//                    removeFilter->Update();
 
-                    //进行拓扑去重（你提供的函数）
-                    double tolerance = 1e-6;  // 可根据实际数据精度调整
-                    vtkSmartPointer<vtkUnstructuredGrid> cleanedGrid = manualRemoveOverlap(removeFilter->GetOutput(), tolerance);
-                    if (!cleanedGrid || cleanedGrid->GetNumberOfPoints() == 0) {
-                        qWarning() << "Block" << blockName.c_str() << "去重失败或为空，跳过";
-                        continue;
-                    }
+//                    //进行拓扑去重（你提供的函数）
+//                    double tolerance = 1e-6;  // 可根据实际数据精度调整
+//                    vtkSmartPointer<vtkUnstructuredGrid> cleanedGrid = manualRemoveOverlap(removeFilter->GetOutput(), tolerance);
+//                    if (!cleanedGrid || cleanedGrid->GetNumberOfPoints() == 0) {
+//                        qWarning() << "Block" << blockName.c_str() << "去重失败或为空，跳过";
+//                        continue;
+//                    }
 
-                    vtkPointData* pd = cleanedGrid->GetPointData();
-                    //去掉属性变量名的zone前缀，统一变量名
-                    RenamePointArraysToSimpleNames(pd);
-                    if (pd && !HasVelocityArray(pd)) {
-                        vtkSmartPointer<vtkArrayCalculator> calculator = vtkSmartPointer<vtkArrayCalculator>::New();
-                        calculator->SetInputData(cleanedGrid);
-                        calculator->AddScalarArrayName("u");
-                        calculator->AddScalarArrayName("v");
-                        calculator->AddScalarArrayName("w");
-                        calculator->SetResultArrayName("velocity");
-                        calculator->SetFunction("u*iHat + v*jHat + w*kHat");
-                        calculator->Update();
+//                    vtkPointData* pd = cleanedGrid->GetPointData();
+//                    //去掉属性变量名的zone前缀，统一变量名
+//                    RenamePointArraysToSimpleNames(pd);
+//                    if (pd && !HasVelocityArray(pd)) {
+//                        vtkSmartPointer<vtkArrayCalculator> calculator = vtkSmartPointer<vtkArrayCalculator>::New();
+//                        calculator->SetInputData(cleanedGrid);
+//                        calculator->AddScalarArrayName("u");
+//                        calculator->AddScalarArrayName("v");
+//                        calculator->AddScalarArrayName("w");
+//                        calculator->SetResultArrayName("velocity");
+//                        calculator->SetFunction("u*iHat + v*jHat + w*kHat");
+//                        calculator->Update();
 
-                        // 将计算出的向量字段手动添加回 cleanedGrid 的 PointData
-                        vtkDataArray* velocityArray = calculator->GetUnstructuredGridOutput()->GetPointData()->GetArray("velocity");
-                        if (velocityArray)
-                        {
-                            pd->AddArray(velocityArray);
-                            pd->SetVectors(velocityArray);  // 可选：设置为默认向量
-                            //qInfo() << "该block已添加velocity" << blockName.c_str();
-                        }
-                    }
-                    //创建 mapper 和 actor，使用去重后的网格
-                    auto mapper = vtkSmartPointer<vtkDataSetMapper>::New();
-                    mapper->SetInputData(cleanedGrid);
+//                        // 将计算出的向量字段手动添加回 cleanedGrid 的 PointData
+//                        vtkDataArray* velocityArray = calculator->GetUnstructuredGridOutput()->GetPointData()->GetArray("velocity");
+//                        if (velocityArray)
+//                        {
+//                            pd->AddArray(velocityArray);
+//                            pd->SetVectors(velocityArray);  // 可选：设置为默认向量
+//                            //qInfo() << "该block已添加velocity" << blockName.c_str();
+//                        }
+//                    }
+//                    //创建 mapper 和 actor，使用去重后的网格
+//                    auto mapper = vtkSmartPointer<vtkDataSetMapper>::New();
+//                    mapper->SetInputData(cleanedGrid);
 
-                    auto actor = vtkSmartPointer<vtkActor>::New();
-                    actor->SetMapper(mapper);
+//                    auto actor = vtkSmartPointer<vtkActor>::New();
+//                    actor->SetMapper(mapper);
 
-                    this->m_renderer->AddActor(actor);
-                    m_actorsList[blockName] = actor;
-                    m_actorsStatus[blockName] = true;
+//                    this->m_renderer->AddActor(actor);
+//                    m_actorsList[blockName] = actor;
+//                    m_actorsStatus[blockName] = true;
 
-                    ++actorCount;
-                }
-            }
-        this->m_blockNum=actorCount;
-        }
+//                    ++actorCount;
+//                }
+//            }
+//        this->m_blockNum=actorCount;
+//        }
 
-    else
-    {
+//    else
+//    {
         // 使用原有 ASCII .dat 读取器
         this->m_multiBlock = this->m_reader.ReadTecplotData(filename);
         if (!this->m_multiBlock) {
@@ -1233,7 +1233,7 @@ void TecplotWidget::SetFileName(QString fileName)
             m_actorsStatus[blockName] = true;
             blockName.clear();
         }
-    }
+  //  }
     this->m_renderWindow->Render();
 }
 
@@ -2850,7 +2850,7 @@ void TecplotWidget::CalculateRelativeMachNumber(QString actorName)
 
     // 设置计算公式：sqrt(ur^2 + vr^2 + wr^2) / sqrt(1.4 * 287 * T)
     calculator->SetFunction("sqrt(ur*ur + vr*vr + wr*wr) / sqrt(1.4 * 287 * T)");
-    calculator->SetResultArrayName("RelativeMach");
+    calculator->SetResultArrayName("Ma_rel");
     calculator->Update();
 
     // 获取计算器的输出数据集
