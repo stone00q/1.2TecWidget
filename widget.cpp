@@ -20,17 +20,46 @@ Widget::Widget(QWidget *parent)
       // m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10].dat)");
        m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
 //       m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
-       auto actors=m_tecplotWidget->GetActorList();
-       qInfo()<<actors;
-       for(auto actor:actors){
-           m_tecplotWidget->ActorVisibilityOff(actor);
-       }
-       QString sliceName=m_tecplotWidget->AddSliceWidget("BLADE");
-       m_tecplotWidget->SliceByZPlane(sliceName,-0.2218);
-       m_tecplotWidget->Slice(sliceName);
-       m_tecplotWidget->HideSliceWidget(sliceName);
-       //m_tecplotWidget->SaveSliceData(sliceName,R"(E:\test.vtp)");
-       m_tecplotWidget->SaveSliceData(sliceName,R"(E:\gggg)",1);
+              auto actors=m_tecplotWidget->GetActorList();
+              qInfo()<<actors;
+              for(auto actor:actors){
+                 // m_tecplotWidget->ActorVisibilityOff(actor);
+                  qInfo()<<m_tecplotWidget->GetPropertyBounds(actor,"p");
+                  /*std::vector(27016.1, 260651)
+std::vector(25578.1, 262854)
+std::vector(65005.8, 133857)
+std::vector(82159.6, 85116.5)
+std::vector(97717.7, 103720)
+std::vector(63374.2, 141857)
+std::vector(63374.2, 141857)
+std::vector(58333.1, 203756)**/
+              }
+         //m_tecplotWidget->SetColorMapOn("p");//映射出来却变成了0-1.标题太大了
+         m_tecplotWidget->ActorVisibilityOff("BLADE");
+         m_tecplotWidget->SetColorMapOn("p");
+         for(auto actor:actors){
+          // m_tecplotWidget->ActorVisibilityOff(actor);
+         }
+       m_tecplotWidget->ActorVisibilityOn("HUB");
+       m_tecplotWidget->SetColorLineOn();
+      // m_tecplotWidget->SetColorLineOff();
+//         m_tecplotWidget->SetColorMapOn("Z");
+//         m_tecplotWidget->ActorVisibilityOff("HUB");
+        // m_tecplotWidget->SetColorMapBounds(0,1);
+         //m_tecplotWidget->SetNumberOfColor(5);
+
+       //写出保存
+//       auto actors=m_tecplotWidget->GetActorList();
+//       qInfo()<<actors;
+//       for(auto actor:actors){
+//           m_tecplotWidget->ActorVisibilityOff(actor);
+//       }
+//       QString sliceName=m_tecplotWidget->AddSliceWidget("BLADE");
+//       m_tecplotWidget->SliceByZPlane(sliceName,-0.2218);
+//       m_tecplotWidget->Slice(sliceName);
+//       m_tecplotWidget->HideSliceWidget(sliceName);
+//       //m_tecplotWidget->SaveSliceData(sliceName,R"(E:\test.vtp)");
+//       m_tecplotWidget->SaveSliceData(sliceName,R"(E:\gggg)",1);
 
 //       qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
 //       //测试相对马赫数
@@ -564,7 +593,7 @@ void Widget::basicButton1_clicked()
 }
 void Widget::basicButton2_clicked()
 {
-    m_tecplotWidget->SetColorMapOn("FLUID","p");
+   // m_tecplotWidget->SetColorMapOn("FLUID","p");
 
 }
 void Widget::slice1Button1_clicked()
@@ -575,7 +604,7 @@ void Widget::slice1Button1_clicked()
 }
 void Widget::slice1Button2_clicked()
 {
-    m_tecplotWidget->SetColorMapOn("Slice1","X");
+   // m_tecplotWidget->SetColorMapOn("Slice1","X");
 }
 
 void Widget::XButton_clicked()
@@ -597,7 +626,7 @@ void Widget::YButton_clicked()
 }
 void Widget::Xcolor_clicked()
 {
-    m_tecplotWidget->SetColorMapOn("Contour1","p");
+    //m_tecplotWidget->SetColorMapOn("Contour1","p");
 }
 void Widget::GlyphButton_clicked()
 {

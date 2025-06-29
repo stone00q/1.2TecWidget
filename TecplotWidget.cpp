@@ -47,6 +47,8 @@
 #include <thread>
 #include <mutex>
 #include <vtkPolyDataWriter.h>
+
+#include<vtkAppendFilter.h>
 //plt读入相关
 //#include <vtkVisItTecplotBinaryReader.h>
 #include <vtkArrayCalculator.h>
@@ -1055,6 +1057,36 @@ TecplotWidget::TecplotWidget(QWidget *parent)
     m_renderer->SetBackground2(1.0, 1.0, 1.0); // 设置页面底部颜色值
     m_renderer->SetBackground(0.529, 0.8078, 0.92157); // 设置页面顶部颜色值
     m_renderer->SetGradientBackground(true); // 开启渐变色背景设置
+
+    //初始化全局颜色映射
+    m_globalLUT = vtkSmartPointer<vtkLookupTable>::New();
+    m_globalScalarBar = vtkSmartPointer<vtkScalarBarActor>::New();
+    m_globalActiveProperty = "";
+    m_globalColorMapOn = false;
+    m_globalColorLineOn = false;
+    m_globalNumberOfColors = 10;
+    // 设置全局颜色条属性
+    m_globalScalarBar->SetLabelFormat("%g");
+    m_globalScalarBar->SetNumberOfLabels(m_globalNumberOfColors);
+    //m_globalScalarBar->SetVerticalTitleSeparation(9);
+    m_globalScalarBar->SetPosition(0.85, 0.05); // 固定位置
+    m_globalScalarBar->SetWidth(0.1);
+    m_globalScalarBar->SetHeight(0.9);
+    m_globalScalarBar->VisibilityOff(); // 默认隐藏
+    m_renderer->AddActor2D(m_globalScalarBar);
+
+    // 初始化全局等值线组件
+       m_globalContourFilter = vtkSmartPointer<vtkContourFilter>::New();
+       m_globalContourActor = vtkSmartPointer<vtkActor>::New();
+
+       vtkSmartPointer<vtkPolyDataMapper> contourMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+       contourMapper->SetInputConnection(m_globalContourFilter->GetOutputPort());
+       contourMapper->ScalarVisibilityOff(); // 关闭标量映射
+       m_globalContourActor->SetMapper(contourMapper);
+       m_globalContourActor->GetProperty()->SetColor(0, 0, 0); // 黑色轮廓线
+       m_globalContourActor->GetProperty()->SetLineWidth(1.0); // 线宽
+       m_globalContourActor->VisibilityOff(); // 默认不可见
+    m_renderer->AddActor(m_globalContourActor);
 }
 TecplotWidget::~TecplotWidget()
 {
@@ -1265,15 +1297,24 @@ bool TecplotWidget::ActorVisibilityOn(QString actorName)
                    this->m_sliceWigetList[name]->EnabledOn();
                }
     }
-    if(this->m_barsStatus.count(name)!=0){
-        if(this->m_barsStatus[name])
-        {
-            this->m_barsList[name]->VisibilityOn();
-            if(this->m_colorLineStatus.count(name)!=0&&this->m_colorLineStatus[name]){
-                this->m_colorLineList[name]->VisibilityOn();
-            }
+//    if(this->m_barsStatus.count(name)!=0){
+//        if(this->m_barsStatus[name])
+//        {
+//            this->m_barsList[name]->VisibilityOn();
+//            if(this->m_colorLineStatus.count(name)!=0&&this->m_colorLineStatus[name]){
+//                this->m_colorLineList[name]->VisibilityOn();
+//            }
+//        }
+//    }
+    if (m_globalColorMapOn) {
+            vtkActor* objActor = m_actorsList[name];
+            vtkMapper* mapper = objActor->GetMapper();
+            mapper->SetLookupTable(m_globalLUT);
+            mapper->ScalarVisibilityOn();
+            mapper->SetScalarModeToUsePointFieldData();
+            mapper->SelectColorArray(m_globalActiveProperty.c_str());
+            m_globalScalarBar->VisibilityOn();
         }
-    }
     this->m_actorsStatus[name] = true;
     vtkActor* objActor = this->m_actorsList[name];
     objActor->VisibilityOn();
@@ -1291,15 +1332,34 @@ bool TecplotWidget::ActorVisibilityOff(QString actorName)
     {
         this->m_sliceWigetList[name]->EnabledOff();
     }
-    if(this->m_barsList.count(name)!=0)
-    {
-        this->m_barsList[name]->VisibilityOff();
-        //this->m_barsStatus[name] = false;
-        if(this->m_colorLineStatus.count(name)!=0){
-            this->m_colorLineList[name]->VisibilityOff();
+//    if(this->m_barsList.count(name)!=0)
+//    {
+//        this->m_barsList[name]->VisibilityOff();
+//        //this->m_barsStatus[name] = false;
+//        if(this->m_colorLineStatus.count(name)!=0){
+//            this->m_colorLineList[name]->VisibilityOff();
+//        }
+//    }
+    this->m_actorsStatus[name] = false;
+
+    if (m_globalColorMapOn) {
+        int num=0;
+        for(auto it:m_actorsStatus){
+            if(it.second==true){
+                num++;
+                break;
+            }
+        }
+        if(num==0){
+            m_globalScalarBar->VisibilityOff();
+        }else{
+            // 如果全局等值线开启，更新等值线
+               if (m_globalColorLineOn) {
+                   UpdateGlobalContourLines();
+               }
+
         }
     }
-    this->m_actorsStatus[name] = false;
     vtkActor* objActor = this->m_actorsList[name];
     objActor->VisibilityOff();
     this->m_renderWindow->Render();
@@ -1312,28 +1372,40 @@ bool TecplotWidget::RemoveActor(QString actorName)
     {
         return false;
     }
-    if(this->m_barsList.count(name)!=0)
-    {
-        auto barActor = this->m_barsList[name];
-        this->m_renderer->RemoveActor(barActor);
-        this->m_barsList.erase(name);
-        this->m_barsStatus.erase(name);
-        this->m_lutsList.erase(name);
-        if(this->m_colorLineList.count(name)!=0){
-            auto colorLine=this->m_colorLineList[name];
-            this->m_renderer->RemoveActor(colorLine);
-            this->m_numOfColorsList.erase(name);
-            this->m_colorMapPropertysList.erase(name);
-            this->m_colorLineStatus.erase(name);
-            this->m_colorLineList.erase(name);
-            this->m_ColorLineContourFilterList.erase(name);
-            auto it=std::find(this->m_activeBars.begin(),this->m_activeBars.end(),name);
-            if(it!=this->m_activeBars.end()) this->m_activeBars.erase(it);
+//    if(this->m_barsList.count(name)!=0)
+//    {
+//        auto barActor = this->m_barsList[name];
+//        this->m_renderer->RemoveActor(barActor);
+//        this->m_barsList.erase(name);
+//        this->m_barsStatus.erase(name);
+//        this->m_lutsList.erase(name);
+//        if(this->m_colorLineList.count(name)!=0){
+//            auto colorLine=this->m_colorLineList[name];
+//            this->m_renderer->RemoveActor(colorLine);
+//            this->m_numOfColorsList.erase(name);
+//            this->m_colorMapPropertysList.erase(name);
+//            this->m_colorLineStatus.erase(name);
+//            this->m_colorLineList.erase(name);
+//            this->m_ColorLineContourFilterList.erase(name);
+//            auto it=std::find(this->m_activeBars.begin(),this->m_activeBars.end(),name);
+//            if(it!=this->m_activeBars.end()) this->m_activeBars.erase(it);
+//        }
+//    }
+//    if(this->m_lutsList.count(name)!=0)
+//    {
+//        this->m_lutsList.erase(name);
+//    }
+    if (m_globalColorMapOn) {
+        int num=0;
+        for(auto it:m_actorsStatus){
+            if(it.second==true){
+                num++;
+                break;
+            }
         }
-    }
-    if(this->m_lutsList.count(name)!=0)
-    {
-        this->m_lutsList.erase(name);
+        if(num==0){
+            m_globalScalarBar->VisibilityOff();
+        }
     }
     if(actorName.contains("Slice"))
     {
@@ -1491,12 +1563,12 @@ QColor TecplotWidget::GetBackgroundColor()
 void TecplotWidget::SetSolidColor(QString actorName,QColor color)
 {
     vtkActor* objActor = this->m_actorsList[actorName.toStdString()];
-    if(this->m_barsList.count(actorName.toStdString())!=0)
-    {//如果之前执行过颜色映射，需要关闭颜色映射、设置bar不可见
-        objActor->GetMapper()->ScalarVisibilityOff();
-        this->m_barsList[actorName.toStdString()]->VisibilityOff();
-        this->m_barsStatus[actorName.toStdString()]= false;
-    }
+//    if(this->m_barsList.count(actorName.toStdString())!=0)
+//    {//如果之前执行过颜色映射，需要关闭颜色映射、设置bar不可见
+//        objActor->GetMapper()->ScalarVisibilityOff();
+//        this->m_barsList[actorName.toStdString()]->VisibilityOff();
+//        this->m_barsStatus[actorName.toStdString()]= false;
+//    }
     int r=color.red();
     int g=color.green();
     int b=color.blue();
@@ -1509,7 +1581,7 @@ void TecplotWidget::SetSolidColor(QString actorName,QColor color)
 void TecplotWidget::SetSolidOpacity(QString actorName, double opacity)
 {
     vtkActor* objActor = this->m_actorsList[actorName.toStdString()];
-    if (this->m_barsList.count(actorName.toStdString()) != 0)
+   // if (this->m_barsList.count(actorName.toStdString()) != 0)
 //    {
 //        // 关闭颜色映射和颜色条
 //        objActor->GetMapper()->ScalarVisibilityOff();
@@ -1527,248 +1599,394 @@ QColor TecplotWidget::GetSolidColor(QString actorName)
     double* rgb=objActor->GetProperty()->GetColor();
     return QColor::fromRgbF(rgb[0],rgb[1],rgb[2]);
 }
-bool TecplotWidget::SetColorMapOn(QString actorName,QString propertyName)
+vtkDataSet* TecplotWidget::GetActorDataSet(const std::string& actorName)
 {
-    std::string name=propertyName.toStdString();
-    int num=15-name.length();
-    std::string pre="";
-    for(int i=0;i<num;i++){
-        pre=pre+"  ";
+    if (m_actorsList.find(actorName) != m_actorsList.end()) {
+        vtkActor* actor = m_actorsList[actorName];
+        return vtkDataSet::SafeDownCast(actor->GetMapper()->GetInput());
     }
-    std::string end=name+pre;
-    std::string objName = actorName.toStdString();
-    std::string objVar = propertyName.toStdString();
-    vtkActor* objActor = this->m_actorsList[objName];
-    vtkMapper* mapper= objActor->GetMapper();
-    vtkDataSet* dataSet = vtkDataSet::SafeDownCast(mapper->GetInput());
-    //如果采用默认参数，则必须之前打开过颜色映射
-    if(this->m_barsList.count(objName)==0)
-    {
-        if(propertyName=="") return false;
-        //该actor第一次打开颜色映射，需要新建lut
-        vtkSmartPointer<vtkLookupTable> lut = vtkSmartPointer<vtkLookupTable>::New();
-        auto barActor = vtkSmartPointer<vtkScalarBarActor>::New();
-        this->m_lutsList[objName] = lut;
-        this->m_barsList[objName] = barActor;
-        this->m_renderer->AddActor2D(barActor);
-        this->m_barsStatus[objName] = true;
-        m_numOfColorsList[objName]=10;
-        m_activeBars.push_back(objName);
-        barActor->SetLabelFormat("%g");  // 使用%g自动选择最合适的格式
-        barActor->SetTitle(end.c_str());
-        barActor->SetNumberOfLabels(10);
-        barActor->SetVerticalTitleSeparation(9);//让颜色条的标题与色阶有一定的距离
-
-    }
-    m_colorMapPropertysList[objName]=objVar;
-    auto lut = m_lutsList[objName];
-    auto barActor = m_barsList[objName];
-
-    if(propertyName=="")
-    {
-        mapper->ScalarVisibilityOn();
-        barActor->VisibilityOn();
-        this->m_barsStatus[objName] = true;
-        auto it = std::find(m_activeBars.begin(), m_activeBars.end(), objName);
-        if (it == m_activeBars.end()) {
-            m_activeBars.push_back(objName);
-        }
-        UpdateAllScalarBarPositions();
-        this->m_renderWindow->Render();
-        return true;
-    }
-    // 设置 Active Scalars
-    //m_numOfColorsList[objName]=10;
-    int selectedId = dataSet->GetPointData()->SetActiveScalars(objVar.c_str());
-    vtkDataArray* scalar = dataSet->GetPointData()->GetArray(selectedId);
-    lut->SetTableRange(scalar->GetRange());
-    lut->SetNumberOfColors(256);
-    lut->SetHueRange(0.666, 0.0);
-    lut->Build();
-    barActor->SetLookupTable(lut);
-    barActor->SetTitle(end.c_str());
-    mapper->SetScalarRange(scalar->GetRange());
-    mapper->SetLookupTable(lut);
-    mapper->ScalarVisibilityOn();
-    mapper->SetScalarModeToUsePointFieldData();
-    mapper->SelectColorArray(propertyName.toStdString().c_str());  // 指定颜色映射属性
-    barActor->VisibilityOn();
-//    mapper->UseLookupTableScalarRangeOn();//这句话会影响，bar色阶显示的是range还是lut的range/
-    // 强制更新颜色条位置
-    // 添加到激活列表并更新布局
-    this->m_barsStatus[objName] = true;
-    auto it = std::find(m_activeBars.begin(), m_activeBars.end(), objName);
-    if (it == m_activeBars.end()) {
-        m_activeBars.push_back(objName);
-    }
-    UpdateAllScalarBarPositions();
-    m_renderWindow->Render();
-    return true;
+    return nullptr;
 }
-bool TecplotWidget::SetColorMapOff(QString actorName)
+//void TecplotWidget::SetColorMapOn(QString propertyName)
+//{
+//    std::string end=name+pre;
+//    std::string objName = actorName.toStdString();
+//    std::string objVar = propertyName.toStdString();
+//    vtkActor* objActor = this->m_actorsList[objName];
+//    vtkMapper* mapper= objActor->GetMapper();
+//    vtkDataSet* dataSet = vtkDataSet::SafeDownCast(mapper->GetInput());
+//    //如果采用默认参数，则必须之前打开过颜色映射
+//    if(this->m_globalBounds.empty()&&propertyName=="") return;
+//    if(propertyName!="")
+//    {
+//        mapper->ScalarVisibilityOn();
+//        barActor->VisibilityOn();
+//        return true;
+//    }
+//    // 设置 Active Scalars
+//    //m_numOfColorsList[objName]=10;
+//    int selectedId = dataSet->GetPointData()->SetActiveScalars(objVar.c_str());
+//    vtkDataArray* scalar = dataSet->GetPointData()->GetArray(selectedId);
+//    lut->SetTableRange(scalar->GetRange());
+//    lut->SetNumberOfColors(256);
+//    lut->SetHueRange(0.666, 0.0);
+//    lut->Build();
+//    barActor->SetLookupTable(lut);
+//    barActor->SetTitle(end.c_str());
+//    mapper->SetScalarRange(scalar->GetRange());
+//    mapper->SetLookupTable(lut);
+//    mapper->ScalarVisibilityOn();
+//    mapper->SetScalarModeToUsePointFieldData();
+//    mapper->SelectColorArray(propertyName.toStdString().c_str());  // 指定颜色映射属性
+//    barActor->VisibilityOn();
+////    mapper->UseLookupTableScalarRangeOn();//这句话会影响，bar色阶显示的是range还是lut的range/
+
+//    return true;
+//}
+//bool TecplotWidget::SetColorMapOff(QString actorName)
+//{
+//    std::string objStdName = actorName.toStdString();
+//    if(this->m_actorsList.count(objStdName)==0)
+//        return false;
+//    vtkActor* objActor = this->m_actorsList[objStdName];
+
+//    if(this->m_barsList.count(objStdName)!=0)
+//    {//如果之前执行过颜色映射，需要关闭颜色映射、设置bar不可见
+//        objActor->GetMapper()->ScalarVisibilityOff();
+//        this->m_barsList[objStdName]->VisibilityOff();
+//        this->m_barsStatus[objStdName] = false;
+//    }
+//    m_renderWindow->Render();
+//    // 从激活列表移除
+//    auto it = std::find(m_activeBars.begin(), m_activeBars.end(), objStdName);
+//    if(it != m_activeBars.end()) {
+//        m_activeBars.erase(it);
+//        UpdateAllScalarBarPositions();  // 更新剩余颜色条
+//    }
+//    return true;
+//}
+//bool TecplotWidget::SetNumberOfColor(QString actorName,int colorNum){
+//    std::string objStdName = actorName.toStdString();
+//        if(this->m_actorsList.count(objStdName)==0) return false;
+//        if(this->m_barsList.count(objStdName)!=0)
+//        {
+//            this->m_barsList[objStdName]->SetNumberOfLabels(colorNum);
+//            m_numOfColorsList[objStdName]=colorNum;
+//            this->m_barsList[objStdName]->Modified();
+//        }
+//        m_renderWindow->Render();
+//        return true;
+//}
+//bool TecplotWidget::SetColorMapBounds(QString actorName, double low, double high) {
+//    std::string objStdName = actorName.toStdString();
+//        if (this->m_actorsList.count(objStdName) == 0) return false;
+
+//        if (this->m_barsList.count(objStdName) != 0) { // 颜色渐变的级数
+//            auto lut = this->m_lutsList[objStdName];
+
+//            for (int i = 0; i < 256; i++) {
+//                    double val = lut->GetRange()[0] + (lut->GetRange()[1] - lut->GetRange()[0]) * i / 255.0;
+//                    if (val < low) {
+//                        lut->SetTableValue(i, 0.0, 0.0, 1.0);  // 纯蓝
+//                    } else if (val > high) {
+//                        lut->SetTableValue(i, 1.0, 0.0, 0.0);  // 纯红
+//                    } else {
+//                        double ratio = (val - low) / (high - low);
+//                        if (ratio < 0.5) {
+//                            lut->SetTableValue(i, 0.0, ratio * 2.0, 1.0 - ratio * 2.0);
+//                        } else {
+//                            lut->SetTableValue(i, (ratio - 0.5) * 2.0, 1.0 - (ratio - 0.5) * 2.0, 0.0);
+//                        }
+//                    }
+//                }
+
+//            lut->SetTableRange(low, high);  // **强制颜色映射适应新范围**
+//            lut->Build();
+//            lut->Modified();
+//        }
+
+//        m_renderWindow->Render();
+//        return true;
+//}
+bool TecplotWidget::GetGlobalPropertyRange(double range[2])
 {
-    std::string objStdName = actorName.toStdString();
-    if(this->m_actorsList.count(objStdName)==0)
-        return false;
-    vtkActor* objActor = this->m_actorsList[objStdName];
+    range[0] = VTK_DOUBLE_MAX;
+    range[1] = VTK_DOUBLE_MIN;
+    bool found = false;
 
-    if(this->m_barsList.count(objStdName)!=0)
-    {//如果之前执行过颜色映射，需要关闭颜色映射、设置bar不可见
-        objActor->GetMapper()->ScalarVisibilityOff();
-        this->m_barsList[objStdName]->VisibilityOff();
-        this->m_barsStatus[objStdName] = false;
-    }
-    m_renderWindow->Render();
-    // 从激活列表移除
-    auto it = std::find(m_activeBars.begin(), m_activeBars.end(), objStdName);
-    if(it != m_activeBars.end()) {
-        m_activeBars.erase(it);
-        UpdateAllScalarBarPositions();  // 更新剩余颜色条
-    }
-    return true;
-}
-bool TecplotWidget::SetNumberOfColor(QString actorName,int colorNum){
-    std::string objStdName = actorName.toStdString();
-        if(this->m_actorsList.count(objStdName)==0) return false;
-        if(this->m_barsList.count(objStdName)!=0)
-        {
-            this->m_barsList[objStdName]->SetNumberOfLabels(colorNum);
-            m_numOfColorsList[objStdName]=colorNum;
-            this->m_barsList[objStdName]->Modified();
-        }
-        m_renderWindow->Render();
-        return true;
-}
-bool TecplotWidget::TecplotWidget::SetColorMapBounds(QString actorName, double low, double high) {
-    std::string objStdName = actorName.toStdString();
-        if (this->m_actorsList.count(objStdName) == 0) return false;
-
-        if (this->m_barsList.count(objStdName) != 0) { // 颜色渐变的级数
-            auto lut = this->m_lutsList[objStdName];
-
-            for (int i = 0; i < 256; i++) {
-                    double val = lut->GetRange()[0] + (lut->GetRange()[1] - lut->GetRange()[0]) * i / 255.0;
-                    if (val < low) {
-                        lut->SetTableValue(i, 0.0, 0.0, 1.0);  // 纯蓝
-                    } else if (val > high) {
-                        lut->SetTableValue(i, 1.0, 0.0, 0.0);  // 纯红
-                    } else {
-                        double ratio = (val - low) / (high - low);
-                        if (ratio < 0.5) {
-                            lut->SetTableValue(i, 0.0, ratio * 2.0, 1.0 - ratio * 2.0);
-                        } else {
-                            lut->SetTableValue(i, (ratio - 0.5) * 2.0, 1.0 - (ratio - 0.5) * 2.0, 0.0);
-                        }
-                    }
+    for (auto& pair : m_actorsStatus) {
+        if (pair.second) { // 只处理可见actor
+            vtkDataSet* data = GetActorDataSet(pair.first);
+            if (data) {
+                vtkDataArray* array = data->GetPointData()->GetArray(m_globalActiveProperty.c_str());
+                if (array) {
+                    double localRange[2];
+                    array->GetRange(localRange);
+                    range[0] = std::min(range[0], localRange[0]);
+                    range[1] = std::max(range[1], localRange[1]);
+                    found = true;
                 }
-
-            lut->SetTableRange(low, high);  // **强制颜色映射适应新范围**
-            lut->Build();
-            lut->Modified();
-        }
-
-        m_renderWindow->Render();
-        return true;
-}
-void TecplotWidget::HideScalarBars(const QStringList& actorNames)
-{
-    for (const QString& name : actorNames) {
-        std::string actorName = name.toStdString();
-        if (this->m_barsList.count(actorName)) {
-            vtkScalarBarActor* barActor = this->m_barsList[actorName];
-            barActor->VisibilityOff();  // 仅关闭色阶条的可见性
-            this->m_barsStatus[actorName] = false;
-
-            // 从 m_activeBars 中移除
-            auto it = std::find(m_activeBars.begin(), m_activeBars.end(), actorName);
-            if (it != m_activeBars.end()) {
-                    m_activeBars.erase(it);
             }
         }
     }
-    UpdateAllScalarBarPositions();  // 重新布局剩余的颜色条
-    this->m_renderWindow->Render();  // 重新渲染更新可见性
+
+    // 如果没有找到数据，设置默认范围
+    if (!found) {
+        range[0] = 0.0;
+        range[1] = 1.0;
+    }
+
+    return found;
 }
-bool TecplotWidget::SetColorLineOn(QString actorName){
-    std::string objStdName = actorName.toStdString();
-    if(this->m_barsList.count(objStdName)==0){
-        return false;
-    }
-    vtkActor* objActor = this->m_actorsList[objStdName];
-    vtkMapper* mapper= objActor->GetMapper();
-    vtkDataSet* dataSet = vtkDataSet::SafeDownCast(mapper->GetInput());
-    if(this->m_colorLineList.count(objStdName)==0)
-    {//第一次打开等值线，需要新建contourfilter和actor、搭建管线
-        vtkSmartPointer<vtkContourFilter> contourFilter = vtkSmartPointer<vtkContourFilter>::New();
-        this->m_ColorLineContourFilterList[objStdName]=contourFilter;
-        contourFilter->SetInputData(dataSet);
-        contourFilter->Update();
-        vtkSmartPointer<vtkPolyDataMapper> contourMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-        contourMapper->SetInputConnection(contourFilter->GetOutputPort());
-        vtkSmartPointer<vtkActor> contourActor = vtkSmartPointer<vtkActor>::New();
-        contourActor->SetMapper(contourMapper);
-        contourActor->GetProperty()->SetColor(0,0,0);
-        m_colorLineList[objStdName]=contourActor;
-        m_renderer->AddActor(contourActor);
-    }
-    int scalarId=dataSet->GetPointData()->SetActiveScalars(m_colorMapPropertysList[objStdName].c_str());
-    vtkDataArray* activeScalars = dataSet->GetPointData()->GetArray(scalarId);
-    if (!activeScalars) {
-//        qInfo()<< m_colorActorPropertysList[objStdName].c_str()<<"不存在或设置失败";
-        return false;
-    }
-    auto contourFilter = this->m_ColorLineContourFilterList[objStdName];
-    auto lut = this->m_lutsList[objStdName];
-    contourFilter->GenerateValues(m_numOfColorsList[objStdName], lut->GetRange()[0],lut->GetRange()[1]);
-//    qInfo()<<"line"<<m_lutsNum[objStdName]<<" "<<lut->GetRange()[0]<<" "<<lut->GetRange()[1];
-    contourFilter->Update();
-    contourFilter->Modified();
-    this->m_colorLineStatus[objStdName]=true;
-    m_renderWindow->Render();
-    return true;
-}
-bool TecplotWidget::SetColorLineOff(QString actorName){
-    std::string objStdName = actorName.toStdString();
-    if(this->m_colorLineList.count(objStdName)==0)
-    {
-        return false;
-    }
-    this->m_colorLineStatus[objStdName]=false;
-    this->m_colorLineList[objStdName]->VisibilityOff();
-    this->m_renderWindow->Render();
-    return true;
-}
-// 新增私有方法
-/**** 有问题的动态调整，标题大小改变不了***/
- void TecplotWidget::UpdateAllScalarBarPositions()
+
+// 更新所有可见actor的颜色映射设置
+void TecplotWidget::UpdateAllActorsColorMapping()
 {
-    const int totalBars = static_cast<int>(m_activeBars.size());
-    if(totalBars == 0) return;
-    // 固定宽度和间距（不再动态调整）
-    const float actualBarWidth = MIN_BAR_WIDTH;  // 固定宽度
-    const float actualSpacing = HORIZONTAL_SPACING;  // 固定间距
+    // 获取全局范围
+    double globalRange[2];
+    GetGlobalPropertyRange(globalRange);
 
-    // 起始位置计算（右对齐）
-    float startX = 1.0f - (actualBarWidth * totalBars
-                              + actualSpacing * (totalBars - 1))
-                              - 0.02f; // 右侧留白2%
+    // 设置全局LUT
+    m_globalLUT->SetTableRange(globalRange);
+    m_globalLUT->SetNumberOfColors(256);
+    m_globalLUT->SetHueRange(0.666, 0.0);
+    m_globalLUT->Build();
 
-    // 统一垂直位置（Y坐标固定）
-    const float barHeight = 0.8f;     // 固定高度25%
-    const float verticalPos = 0.1f;   // 底部留出25%空间
-
-    // 按激活顺序排列（最新在左侧）
-    float currentX = startX;
-    for(auto it = m_activeBars.rbegin(); it != m_activeBars.rend(); ++it){
-        if(auto bar = m_barsList[*it]){
-            bar->SetPosition(currentX, verticalPos);
-            bar->SetWidth(actualBarWidth);
-            bar->SetHeight(barHeight);
-            currentX += actualBarWidth + actualSpacing;
+    // 更新所有可见actor
+    for (auto& pair : m_actorsStatus) {
+        if (pair.second) { // 只更新可见actor
+            vtkActor* actor = m_actorsList[pair.first];
+            vtkMapper* mapper = actor->GetMapper();
+            mapper->SetLookupTable(m_globalLUT);
+            mapper->UseLookupTableScalarRangeOn(); // 使用LUT的范围，而不是数据自身的范围
+            mapper->ScalarVisibilityOn();
+            mapper->SetScalarModeToUsePointFieldData();
+            mapper->SelectColorArray(m_globalActiveProperty.c_str());
+            mapper->Modified();
         }
     }
+
+    // 更新全局颜色条
+    m_globalScalarBar->SetLookupTable(m_globalLUT);
+    std::string title=m_globalActiveProperty;
+    while(title.length()<15){
+        title+=" ";
+    }
+    m_globalScalarBar->SetTitle(title.c_str());
+    m_globalScalarBar->Modified();
+    // 如果全局等值线开启，更新等值线
+        if (m_globalColorLineOn) {
+            UpdateGlobalContourLines();
+        }
+}
+void TecplotWidget::SetColorMapOn(QString propertyName)
+{
+    // 设置全局激活属性
+    if (!propertyName.isEmpty()) {
+        m_globalActiveProperty = propertyName.toStdString();
+    }
+
+    // 更新所有actor的颜色映射
+    UpdateAllActorsColorMapping();
+
+    // 显示颜色条
+    m_globalScalarBar->VisibilityOn();
+    m_globalColorMapOn = true;
+    m_globalBarOn=true;
+
     m_renderWindow->Render();
 }
+
+void TecplotWidget::SetColorMapOff()
+{
+    // 关闭所有actor的颜色映射
+    for (auto& pair : m_actorsList) {
+        vtkActor* actor = pair.second;
+        actor->GetMapper()->ScalarVisibilityOff();
+    }
+
+    // 隐藏颜色条
+    m_globalScalarBar->VisibilityOff();
+    m_globalColorMapOn = false;
+    m_globalBarOn=false;
+    m_renderWindow->Render();
+}
+
+bool TecplotWidget::SetNumberOfColor(int colorNum)
+{
+    m_globalNumberOfColors = colorNum;
+    m_globalScalarBar->SetNumberOfLabels(colorNum);
+
+    // 如果全局等值线开启，更新等值线
+        if (m_globalColorLineOn) {
+            UpdateGlobalContourLines();
+        }
+
+
+    m_renderWindow->Render();
+    return true;
+}
+
+bool TecplotWidget::SetColorMapBounds(double low, double high)
+{
+    m_globalLUT->SetTableRange(low, high);
+    m_globalLUT->Build();
+
+    // 更新所有可见actor
+    for (auto& pair : m_actorsStatus) {
+        if (pair.second) {
+            vtkActor* actor = m_actorsList[pair.first];
+            vtkMapper* mapper = actor->GetMapper();
+            mapper->SetLookupTable(m_globalLUT);
+            mapper->Modified();
+        }
+    }
+    m_globalScalarBar->Modified();
+    m_renderWindow->Render();
+    return true;
+}
+// 全局等值线开启函数
+void TecplotWidget::SetColorLineOn()
+{
+    if (m_globalColorLineOn) return;
+
+    m_globalColorLineOn = true;
+
+    // 获取所有可见actor的数据集
+    vtkSmartPointer<vtkAppendFilter> appendFilter = vtkSmartPointer<vtkAppendFilter>::New();
+    appendFilter->MergePointsOn(); // 合并点
+
+    for (auto& pair : m_actorsStatus) {
+        if (pair.second) { // 只处理可见actor
+            vtkActor* actor = m_actorsList[pair.first];
+            vtkDataSet* dataSet = vtkDataSet::SafeDownCast(actor->GetMapper()->GetInput());
+            if (dataSet) {
+                appendFilter->AddInputData(dataSet);
+            }
+        }
+    }
+
+    // 设置输入数据集
+    appendFilter->Update();
+    vtkDataSet* combinedData = appendFilter->GetOutput();
+
+    // 设置全局等值线过滤器
+    m_globalContourFilter->SetInputData(combinedData);
+    m_globalContourFilter->SetInputArrayToProcess(0, 0, 0,
+        vtkDataObject::FIELD_ASSOCIATION_POINTS,
+        m_globalActiveProperty.c_str());
+
+    // 设置等值线值（基于全局颜色映射的色阶）
+    double range[2];
+    m_globalLUT->GetTableRange(range);
+
+    // 生成等值线（数量与色阶数量相同）
+    m_globalContourFilter->GenerateValues(m_globalNumberOfColors, range[0], range[1]);
+    m_globalContourFilter->Update();
+
+    // 设置可见
+    m_globalContourActor->VisibilityOn();
+
+    m_renderWindow->Render();
+}
+
+// 全局等值线关闭函数
+void TecplotWidget::SetColorLineOff()
+{
+    if (!m_globalColorLineOn) return;
+
+    m_globalColorLineOn = false;
+    m_globalContourActor->VisibilityOff();
+    m_renderWindow->Render();
+}
+// 更新全局等值线
+void TecplotWidget::UpdateGlobalContourLines()
+{
+    if (!m_globalColorLineOn) return;
+
+    // 获取所有可见actor的数据集
+    vtkSmartPointer<vtkAppendFilter> appendFilter = vtkSmartPointer<vtkAppendFilter>::New();
+    appendFilter->MergePointsOn(); // 合并点
+
+    for (auto& pair : m_actorsStatus) {
+        if (pair.second) { // 只处理可见actor
+            vtkActor* actor = m_actorsList[pair.first];
+            vtkDataSet* dataSet = vtkDataSet::SafeDownCast(actor->GetMapper()->GetInput());
+            if (dataSet) {
+                appendFilter->AddInputData(dataSet);
+            }
+        }
+    }
+
+    // 设置输入数据集
+    appendFilter->Update();
+    vtkDataSet* combinedData = appendFilter->GetOutput();
+
+    // 设置全局等值线过滤器
+    m_globalContourFilter->SetInputData(combinedData);
+    m_globalContourFilter->SetInputArrayToProcess(0, 0, 0,
+        vtkDataObject::FIELD_ASSOCIATION_POINTS,
+        m_globalActiveProperty.c_str());
+
+    // 设置等值线值（基于全局颜色映射的色阶）
+    double range[2];
+    m_globalLUT->GetTableRange(range);
+
+    // 生成等值线（数量与色阶数量相同）
+    m_globalContourFilter->GenerateValues(m_globalNumberOfColors, range[0], range[1]);
+    m_globalContourFilter->Update();
+
+    m_renderWindow->Render();
+}
+//bool TecplotWidget::SetColorLineOn(QString actorName){
+//    std::string objStdName = actorName.toStdString();
+//    if(this->m_barsList.count(objStdName)==0){
+//        return false;
+//    }
+//    vtkActor* objActor = this->m_actorsList[objStdName];
+//    vtkMapper* mapper= objActor->GetMapper();
+//    vtkDataSet* dataSet = vtkDataSet::SafeDownCast(mapper->GetInput());
+//    if(this->m_colorLineList.count(objStdName)==0)
+//    {//第一次打开等值线，需要新建contourfilter和actor、搭建管线
+//        vtkSmartPointer<vtkContourFilter> contourFilter = vtkSmartPointer<vtkContourFilter>::New();
+//        this->m_ColorLineContourFilterList[objStdName]=contourFilter;
+//        contourFilter->SetInputData(dataSet);
+//        contourFilter->Update();
+//        vtkSmartPointer<vtkPolyDataMapper> contourMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+//        contourMapper->SetInputConnection(contourFilter->GetOutputPort());
+//        vtkSmartPointer<vtkActor> contourActor = vtkSmartPointer<vtkActor>::New();
+//        contourActor->SetMapper(contourMapper);
+//        contourActor->GetProperty()->SetColor(0,0,0);
+//        m_colorLineList[objStdName]=contourActor;
+//        m_renderer->AddActor(contourActor);
+//    }
+//    int scalarId=dataSet->GetPointData()->SetActiveScalars(m_colorMapPropertysList[objStdName].c_str());
+//    vtkDataArray* activeScalars = dataSet->GetPointData()->GetArray(scalarId);
+//    if (!activeScalars) {
+////        qInfo()<< m_colorActorPropertysList[objStdName].c_str()<<"不存在或设置失败";
+//        return false;
+//    }
+//    auto contourFilter = this->m_ColorLineContourFilterList[objStdName];
+//    auto lut = this->m_lutsList[objStdName];
+//    contourFilter->GenerateValues(m_numOfColorsList[objStdName], lut->GetRange()[0],lut->GetRange()[1]);
+////    qInfo()<<"line"<<m_lutsNum[objStdName]<<" "<<lut->GetRange()[0]<<" "<<lut->GetRange()[1];
+//    contourFilter->Update();
+//    contourFilter->Modified();
+//    this->m_colorLineStatus[objStdName]=true;
+//    m_renderWindow->Render();
+//    return true;
+//}
+//bool TecplotWidget::SetColorLineOff(QString actorName){
+//    std::string objStdName = actorName.toStdString();
+//    if(this->m_colorLineList.count(objStdName)==0)
+//    {
+//        return false;
+//    }
+//    this->m_colorLineStatus[objStdName]=false;
+//    this->m_colorLineList[objStdName]->VisibilityOff();
+//    this->m_renderWindow->Render();
+//    return true;
+//}
 QString TecplotWidget::AddSliceWidget(QString derivedActorName)
 {
     this->m_sliceWidgetNum++;

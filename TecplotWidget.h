@@ -259,19 +259,16 @@ public:
 
     /**
      * @brief SetColorMapOn
-     * @param QString actorName，进行颜色映射的actor名称
-     * @param QString propertyName，进行颜色映射的属性。只有当该actor打开过颜色映射，采用默认参数""空字符串才不会返回false
-     * @return bool，若该actor没有该属性的化则返回false，若propertyName采用默认参数但之前该actor没有设置过颜色映射也会返回false。其他情况返回true
-     * @details 对指定的actor指定属性进行颜色映射。只有在打开过颜色映射并且不需要改变映射的属性的情况下，第二个参数才可以使用默认参数
+     * @param QString propertyName，进行颜色映射的标量属性。
+     * @details 对指定的actor指定属性进行颜色映射。需要自行验证属性变量名是否合法。
      */
-    bool SetColorMapOn(QString actorName,QString propertyName="");
+    void SetColorMapOn(QString propertyName);
 
     /**
      * @brief SetColorMapOff
-     * @param QString actorName，需要关闭颜色映射的actor名称
-     * @return bool，若该actor不存在，则返回false，否则返回true
+     * @details关闭所有颜色映射
      */
-    bool SetColorMapOff(QString actorName);
+    void SetColorMapOff();
     /***颜色映射：指定色阶数量***/
     /**
      * @brief SetNumberOfColor
@@ -279,7 +276,7 @@ public:
      * @param int colorNum，色阶数量
      * @return bool，如果改模型没有打开过颜色映射则return false，否则return ture
      */
-    bool SetNumberOfColor(QString actorName,int colorNum);
+    bool SetNumberOfColor(int colorNum);
     /***颜色映射：指定色阶边界****/
     /**
      * @brief SetColorMapBounds
@@ -288,28 +285,19 @@ public:
      * @param double high，上界
      * @return bool，如果该模型没有打开过颜色映射则return false，否则return ture（默认是范围内的
      */
-    bool SetColorMapBounds(QString actorName,double low,double high);
-
-    /***颜色映射：隐藏指定色阶**/
-    /**
-     * @brief HideScalarBars
-     * @param QStringList actorNames，需要隐藏色阶条的actorname的list
-     */
-    void HideScalarBars(const QStringList& actorNames);
+    bool SetColorMapBounds(double low,double high);
 
     /**开启line表达**/
     /**
      * @brief SetColorLineOn
-     * @param QString actorName，需要设置的actor名称，根据颜色映射的色阶数量决定等值线条数
-     * @return bool，如果该模型没有打开过颜色映射则return false，否则return ture
+     * @details根据颜色映射的色阶数量决定等值线条数
      */
-    bool SetColorLineOn(QString actorName);
+    void SetColorLineOn();
     /**
      * @brief SetColorLineOff
-     * @param QString actorName，需要设置的actor名称，关闭和颜色映射相关的等值线
-     * @return bool，如果该模型没有打开过颜色映射则return false，否则return ture
+     * @details 关闭根据色阶生成等值线
      */
-    bool SetColorLineOff(QString actorName);
+    void SetColorLineOff();
 
     /****设置cut****/
     /**
@@ -621,9 +609,6 @@ private:
     //actorsststus保存actor状态，1可见，0不可见
     std::map<std::string,vtkActor*> m_actorsList;
     std::map<std::string,bool> m_actorsStatus;  //正在显示的actor状态为true
-    std::map<std::string,vtkSmartPointer<vtkLookupTable> > m_lutsList;
-    std::map<std::string,vtkScalarBarActor*> m_barsList;
-    std::map<std::string,bool> m_barsStatus;
     std::map<std::string,Contour*> m_contoursList;
     std::map<std::string,Glyph*> m_glyphsList;
     std::map<std::string,vtkSmartPointer<vtkImplicitPlaneWidget2> > m_sliceWigetList;
@@ -635,11 +620,9 @@ private:
     vtkSmartPointer<vtkOrientationMarkerWidget> m_orientationMarker;
     vtkSmartPointer<vtkAxesActor> m_axes;
 
-    std::map<std::string,int> m_numOfColorsList;
-    std::map<std::string,vtkActor*> m_colorLineList;
-    std::map<std::string,bool> m_colorLineStatus;  //正在显示的actor状态为true
-    std::map<std::string,std::string> m_colorMapPropertysList;
-    std::map<std::string,vtkSmartPointer<vtkContourFilter> > m_ColorLineContourFilterList;
+    std::map<std::string,vtkActor*> m_colorLineList;//??
+    std::map<std::string,bool> m_colorLineStatus;  //正在显示的actor状态为true?
+    std::map<std::string,vtkSmartPointer<vtkContourFilter> > m_ColorLineContourFilterList;//?
     std::map<std::string, bool> m_sliceWidgetVisibilityStatus;
 
     //保存s1的面的提取
@@ -653,11 +636,6 @@ private:
 
     TecplotReader m_reader;
 
-    //颜色映射barchart色阶相关
-    std::vector<std::string> m_activeBars;  // 新增：维护激活的颜色条顺序
-    const float HORIZONTAL_SPACING = 0.005f;  // 水平间距2%
-    const float MIN_BAR_WIDTH = 0.05f;       // 最小宽度12%
-    void UpdateAllScalarBarPositions();
     //s1面相关：六个面提取一个体
     vtkSmartPointer<vtkUnstructuredGrid> clipWithSixSurfaces(
         vtkSmartPointer<vtkUnstructuredGrid> input,
@@ -674,6 +652,23 @@ private:
 
     //旋转复制
     vtkSmartPointer<vtkTransform> CreateRotationTransform(char axis, double angle);
+
+    //全局颜色映射成员
+    vtkSmartPointer<vtkLookupTable> m_globalLUT;         // 全局颜色查找表
+    vtkSmartPointer<vtkScalarBarActor> m_globalScalarBar; // 全局颜色条
+    std::string m_globalActiveProperty;                   // 当前激活的属性名（如"p"）
+    bool m_globalColorMapOn;                              // 全局颜色映射开关
+    int m_globalNumberOfColors;                          // 全局色阶数量
+    bool m_globalBarOn;
+    vtkDataSet* GetActorDataSet(const std::string& actorName);//获取actor对应数据集
+    bool GetGlobalPropertyRange(double range[2]);
+    void UpdateAllActorsColorMapping();
+
+    // 全局等值线相关
+    bool m_globalColorLineOn; // 全局等值线开关
+    vtkSmartPointer<vtkContourFilter> m_globalContourFilter; // 全局等值线过滤器
+    vtkSmartPointer<vtkActor> m_globalContourActor; // 全局等值线actor
+    void UpdateGlobalContourLines();
 
 };
 
