@@ -592,6 +592,16 @@ public:
        */
       bool SaveSliceData(QString sliceName,QString filePath,int format);
 
+//      /**
+//       * @brief SaveIntersectionLineData做两个actor的交线并保存到指定路径
+//       * @param actorName1曲面一的名称
+//       * @param actorName2曲面二的名称
+//       * @param filePath曲面一和曲面交线的写出保存路径
+//       * @return bool，是否成功写出
+//       */
+//      bool SaveIntersectionLineData(QString actorName1, QString actorName2, QString filePath);
+
+
 private:
 
     //共享的

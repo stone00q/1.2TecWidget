@@ -49,6 +49,8 @@
 #include <vtkPolyDataWriter.h>
 
 #include<vtkAppendFilter.h>
+#include <vtkIntersectionPolyDataFilter.h>
+
 //plt读入相关
 //#include <vtkVisItTecplotBinaryReader.h>
 #include <vtkArrayCalculator.h>
@@ -1066,9 +1068,9 @@ TecplotWidget::TecplotWidget(QWidget *parent)
     m_globalColorLineOn = false;
     m_globalNumberOfColors = 10;
     // 设置全局颜色条属性
-    m_globalScalarBar->SetLabelFormat("%g");
+    m_globalScalarBar->SetLabelFormat("%.3e");
     m_globalScalarBar->SetNumberOfLabels(m_globalNumberOfColors);
-    //m_globalScalarBar->SetVerticalTitleSeparation(9);
+    m_globalScalarBar->SetVerticalTitleSeparation(10);
     m_globalScalarBar->SetPosition(0.85, 0.05); // 固定位置
     m_globalScalarBar->SetWidth(0.1);
     m_globalScalarBar->SetHeight(0.9);
@@ -3265,14 +3267,294 @@ bool TecplotWidget::SaveSliceData(QString sliceName, QString filePath,int format
         qWarning()<<"Unsupported format";
         return false;
     }
-
-
-
     if(!success){
        qWarning()<<"Failed to save slice data: "<<sliceName;
     }
     return success;
 }
+
+//bool TecplotWidget::SaveIntersectionLineData(QString actorName1, QString actorName2, QString filePath)
+//{
+//    std::string name1 = actorName1.toStdString();
+//    std::string name2 = actorName2.toStdString();
+
+//    // 检查两个actor是否存在
+//    if (m_actorsList.find(name1) == m_actorsList.end() ||
+//        m_actorsList.find(name2) == m_actorsList.end()) {
+//        qWarning() << "One or both actors not found:" << actorName1 << actorName2;
+//        return false;
+//    }
+
+//    // 获取数据集并转换为vtkPolyData
+//    auto convertToPolyData = [](vtkDataSet* dataset) -> vtkSmartPointer<vtkPolyData> {
+//        if (dataset->GetDataObjectType() == VTK_POLY_DATA) {
+//            return vtkPolyData::SafeDownCast(dataset);
+//        } else {
+//            auto geoFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+//            geoFilter->SetInputData(dataset);
+//            geoFilter->Update();
+//            return geoFilter->GetOutput();
+//        }
+//    };
+
+//    vtkDataSet* data1 = vtkDataSet::SafeDownCast(m_actorsList[name1]->GetMapper()->GetInput());
+//    vtkDataSet* data2 = vtkDataSet::SafeDownCast(m_actorsList[name2]->GetMapper()->GetInput());
+
+//    vtkSmartPointer<vtkPolyData> poly1 = convertToPolyData(data1);
+//    vtkSmartPointer<vtkPolyData> poly2 = convertToPolyData(data2);
+//    // 提取特征边界（包括孔洞边界）
+//        auto extractFeatures = [](vtkPolyData* input) -> vtkSmartPointer<vtkPolyData> {
+//            auto featureEdges = vtkSmartPointer<vtkFeatureEdges>::New();
+//            featureEdges->SetInputData(input);
+//            featureEdges->BoundaryEdgesOn();
+//            featureEdges->FeatureEdgesOn();
+//            featureEdges->ManifoldEdgesOff();
+//            featureEdges->NonManifoldEdgesOff();
+//            featureEdges->Update();
+//            return featureEdges->GetOutput();
+//        };
+
+//        vtkSmartPointer<vtkPolyData> features1 = extractFeatures(poly1);
+//        vtkSmartPointer<vtkPolyData> features2 = extractFeatures(poly2);
+
+//        // 合并特征和曲面
+//        auto append = vtkSmartPointer<vtkAppendPolyData>::New();
+//        append->AddInputData(poly1);
+//        append->AddInputData(features2);  // 添加另一曲面的特征
+//        append->Update();
+
+//        vtkSmartPointer<vtkPolyData> combined1 = append->GetOutput();
+
+//        append = vtkSmartPointer<vtkAppendPolyData>::New();
+//        append->AddInputData(poly2);
+//        append->AddInputData(features1);  // 添加另一曲面的特征
+//        append->Update();
+
+//        vtkSmartPointer<vtkPolyData> combined2 = append->GetOutput();
+//    // 计算交线
+//    auto intersectionFilter = vtkSmartPointer<vtkIntersectionPolyDataFilter>::New();
+////    intersectionFilter->SetInputData(0, poly1);
+////    intersectionFilter->SetInputData(1, poly2);
+//    intersectionFilter->SetInputData(0, combined1);
+//    intersectionFilter->SetInputData(1, combined2);
+//    intersectionFilter->Update();
+
+//    vtkPolyData* intersectionLine = intersectionFilter->GetOutput();
+
+//    // 检查交线是否存在
+//    if (intersectionLine->GetNumberOfPoints() == 0) {
+//        qWarning() << "No intersection found between" << actorName1 << "and" << actorName2;
+//        return false;
+//    }
+
+//    // 写入Tecplot格式文件
+//    std::ofstream outFile(filePath.toStdString());
+//    if (!outFile.is_open()) {
+//        qWarning() << "Failed to open file for writing:" << filePath;
+//        return false;
+//    }
+
+//    // 写文件头
+//    outFile << "TITLE = \"Intersection Line between "
+//            << actorName1.toStdString() << " and "
+//            << actorName2.toStdString() << "\"\n";
+//    outFile << "VARIABLES = \"X\", \"Y\", \"Z\"";
+
+//    // 添加属性变量名
+//    vtkPointData* pd = intersectionLine->GetPointData();
+//    for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
+//        const char* arrayName = pd->GetArrayName(i);
+//        // 跳过属性中的坐标和速度矢量
+//               if (arrayName && (strcmp(arrayName, "X") == 0 ||
+//                                 strcmp(arrayName, "Y") == 0 ||
+//                                 strcmp(arrayName, "Z") == 0||
+//                                 strcmp(arrayName,"velocity")==0)) {
+//                   continue;
+//               }
+//        outFile << ", \"" << arrayName << "\"";
+//    }
+//    outFile << "\n";
+
+//    // 写数据区域
+//    outFile << "ZONE T=\"Intersection\", N="
+//            << intersectionLine->GetNumberOfPoints()
+//            << ", E=" << intersectionLine->GetNumberOfCells()
+//            << ", DATAPACKING=POINT, ZONETYPE=";
+//    // 确定单元类型
+//    std::string zoneType = "FELINESEG";
+//    if (intersectionLine->GetNumberOfCells() > 0) {
+//        vtkCell* cell = intersectionLine->GetCell(0);
+//        switch (cell->GetCellType()) {
+//        case VTK_TRIANGLE:
+//            zoneType = "FETRIANGLE";
+//            break;
+//        case VTK_QUAD:
+//            zoneType = "FEQUADRILATERAL";
+//            break;
+//        case VTK_TETRA:
+//            zoneType = "FETETRAHEDRON";
+//            break;
+//        case VTK_HEXAHEDRON:
+//            zoneType = "FEBRICK";
+//            break;
+//        }
+//    }
+//    outFile << zoneType << "\n";
+
+//    // 写出所有点坐标
+//    vtkPoints* points = intersectionLine->GetPoints();
+//    for (vtkIdType i = 0; i < points->GetNumberOfPoints(); i++) {
+//        double p[3];
+//        points->GetPoint(i, p);
+//        outFile << std::scientific << std::setprecision(9)
+//                << p[0] << " " << p[1] << " " << p[2];
+//        // 写入属性值
+//        for (int j = 0; j < pd->GetNumberOfArrays(); j++) {
+//            vtkDataArray* array = pd->GetArray(j);
+//            const char* arrayName = array->GetName();
+
+//                        // 跳过坐标属性
+//                        if (arrayName && (strcmp(arrayName, "X") == 0 ||
+//                                          strcmp(arrayName, "Y") == 0 ||
+//                                          strcmp(arrayName, "Z") == 0||
+//                                          strcmp(arrayName,"velocity")==0)) {
+//                            continue;
+//                        }
+//            int numComponents = array->GetNumberOfComponents();
+//            for (int k = 0; k < numComponents; k++) {
+//                outFile << " " << array->GetComponent(i, k);
+//            }
+//        }
+//        outFile << "\n";
+//    }
+
+//    outFile<<"\n";
+
+//    // 写入单元连接性
+//    for (vtkIdType i = 0; i < intersectionLine->GetNumberOfCells(); i++) {
+//        vtkCell* cell = intersectionLine->GetCell(i);
+//        for (int j = 0; j < cell->GetNumberOfPoints(); j++) {
+//            // Tecplot索引从1开始
+//            outFile << (cell->GetPointId(j) +1) << " ";
+//        }
+//        outFile << "\n";
+//    }
+
+//    outFile.close();
+//    return true;
+//}
+//#include <vtkImplicitPolyDataDistance.h>
+//#include <vtkCutter.h>
+//#include <vtkGeometryFilter.h>
+//#include <iomanip> // for std::setprecision
+
+//bool TecplotWidget::SaveIntersectionByCutting(QString cuttingToolActor, QString targetActor, QString filePath)
+//{
+//    std::string cuttingName = cuttingToolActor.toStdString();
+//    std::string targetName = targetActor.toStdString();
+
+//    // 检查两个actor是否存在
+//    if (m_actorsList.find(cuttingName) == m_actorsList.end() ||
+//        m_actorsList.find(targetName) == m_actorsList.end()) {
+//        qWarning() << "One or both actors not found:" << cuttingToolActor << targetActor;
+//        return false;
+//    }
+
+//    // 获取切割工具actor的数据，并转换为vtkPolyData
+//    auto getPolyData = [](vtkDataSet* dataset) -> vtkSmartPointer<vtkPolyData> {
+//        if (dataset->GetDataObjectType() == VTK_POLY_DATA) {
+//            return vtkPolyData::SafeDownCast(dataset);
+//        } else {
+//            auto geoFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+//            geoFilter->SetInputData(dataset);
+//            geoFilter->Update();
+//            return geoFilter->GetOutput();
+//        }
+//    };
+
+//    vtkDataSet* cuttingDataSet = vtkDataSet::SafeDownCast(m_actorsList[cuttingName]->GetMapper()->GetInput());
+//    vtkDataSet* targetDataSet = vtkDataSet::SafeDownCast(m_actorsList[targetName]->GetMapper()->GetInput());
+
+//    vtkSmartPointer<vtkPolyData> cuttingPoly = getPolyData(cuttingDataSet);
+//    vtkSmartPointer<vtkPolyData> targetPoly = getPolyData(targetDataSet);
+
+//    // 创建切割工具（隐式函数）
+//    auto implicitPoly = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+//    implicitPoly->SetInput(cuttingPoly);
+
+//    // 创建切割器
+//    auto cutter = vtkSmartPointer<vtkCutter>::New();
+//    cutter->SetInputData(targetPoly);
+//    cutter->SetCutFunction(implicitPoly);
+//    cutter->SetValue(0, 0.0); // 切割函数值为0的地方（即切割工具所在位置）
+//    cutter->Update();
+
+//    vtkPolyData* intersectionLine = cutter->GetOutput();
+
+//    // 清理和优化交线
+//    auto cleaner = vtkSmartPointer<vtkCleanPolyData>::New();
+//    cleaner->SetInputData(intersectionLine);
+//    cleaner->PointMergingOn();
+//    cleaner->SetTolerance(1e-6);
+//    cleaner->Update();
+
+//    vtkPolyData* cleanedLine = cleaner->GetOutput();
+
+//    // 检查交线是否存在
+//    if (cleanedLine->GetNumberOfPoints() == 0) {
+//        qWarning() << "No intersection found between" << cuttingToolActor << "and" << targetActor;
+//        return false;
+//    }
+
+//    // 确保交线是折线
+//    auto lines = cleanedLine->GetLines();
+//    if (lines->GetNumberOfCells() == 0) {
+//        qWarning() << "Intersection is not a line";
+//        return false;
+//    }
+
+//    // 写入Tecplot格式文件
+//    std::ofstream outFile(filePath.toStdString());
+//    if (!outFile.is_open()) {
+//        qWarning() << "Failed to open file for writing:" << filePath;
+//        return false;
+//    }
+
+//    // 写文件头
+//    outFile << "TITLE = \"Intersection Line between "
+//            << cuttingToolActor.toStdString() << " and "
+//            << targetActor.toStdString() << "\"\n";
+//    outFile << "VARIABLES = \"X\", \"Y\", \"Z\"\n";
+
+//    // 写数据区域
+//    outFile << "ZONE T=\"Intersection\", N="
+//            << cleanedLine->GetNumberOfPoints()
+//            << ", E=" << lines->GetNumberOfCells()
+//            << ", DATAPACKING=POINT, ZONETYPE=FELINESEG\n";
+
+//    // 写出所有点坐标
+//    vtkPoints* points = cleanedLine->GetPoints();
+//    for (vtkIdType i = 0; i < points->GetNumberOfPoints(); i++) {
+//        double p[3];
+//        points->GetPoint(i, p);
+//        outFile << std::scientific << std::setprecision(9)
+//                << p[0] << " " << p[1] << " " << p[2] << "\n";
+//    }
+
+//    // 写出线段连接性（索引从1开始）
+//    lines->InitTraversal();
+//    vtkIdType npts;
+//    const vtkIdType* ptIds;
+//    while (lines->GetNextCell(npts, ptIds)) {
+//        for (vtkIdType i = 0; i < npts; i++) {
+//            outFile << (ptIds[i] + 1) << " ";
+//        }
+//        outFile << "\n";
+//    }
+
+//    outFile.close();
+//    return true;
+//}
 /***************************************************************************
  ***************************************************************************
  ***************************************************************************

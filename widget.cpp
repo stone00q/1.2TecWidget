@@ -18,30 +18,51 @@ Widget::Widget(QWidget *parent)
        //m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sa_[7500].plt)");
        //m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10005].dat)");
       // m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10].dat)");
-       m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
+
+       m_tecplotWidget->SetFileName(R"(E:\VTK\data\struct_[0]_[0].dat)");
+       //qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
+      m_tecplotWidget->SetColorMapOn("u");
+       //m_tecplotWidget->ActorVisibilityOn()
+      // m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
+//       auto actors=m_tecplotWidget->GetActorList();
+//       qInfo()<<actors;
+//       for(auto actor:actors){
+//            m_tecplotWidget->ActorVisibilityOff(actor);
+//            //qInfo()<<m_tecplotWidget->GetPropertyBounds(actor,"p");
+
+//       }
+      // m_tecplotWidget->ActorVisibilityOn("SHROUD");
+       //m_tecplotWidget->ActorVisibilityOn("BLADE");
+       //auto s1=m_tecplotWidget->ExtractS1("PA","PB","INLET","OUTLET","SHROUD","HUB","FLUID");
+      // m_tecplotWidget->SaveSliceData(s1,R"(E:\aa)",1);
+      // m_tecplotWidget->SaveIntersectionLineData("S1_PA_RelativeR=50%","BLADE",R"(E:\INTER.dat)");//这个函数求不了s1和blade的交线
+      // m_tecplotWidget->SaveIntersectionLineData("BLADE","SHROUD",R"(E:\INTER.dat)");//
+
+       /********测试所有显示的actor用同一个色阶条**********/
 //       m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
-              auto actors=m_tecplotWidget->GetActorList();
-              qInfo()<<actors;
-              for(auto actor:actors){
-                 // m_tecplotWidget->ActorVisibilityOff(actor);
-                  qInfo()<<m_tecplotWidget->GetPropertyBounds(actor,"p");
-                  /*std::vector(27016.1, 260651)
-std::vector(25578.1, 262854)
-std::vector(65005.8, 133857)
-std::vector(82159.6, 85116.5)
-std::vector(97717.7, 103720)
-std::vector(63374.2, 141857)
-std::vector(63374.2, 141857)
-std::vector(58333.1, 203756)**/
-              }
-         //m_tecplotWidget->SetColorMapOn("p");//映射出来却变成了0-1.标题太大了
-         m_tecplotWidget->ActorVisibilityOff("BLADE");
-         m_tecplotWidget->SetColorMapOn("p");
-         for(auto actor:actors){
-          // m_tecplotWidget->ActorVisibilityOff(actor);
-         }
-       m_tecplotWidget->ActorVisibilityOn("HUB");
-       m_tecplotWidget->SetColorLineOn();
+////       m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
+//              auto actors=m_tecplotWidget->GetActorList();
+//              qInfo()<<actors;
+//              for(auto actor:actors){
+//                 // m_tecplotWidget->ActorVisibilityOff(actor);
+//                  qInfo()<<m_tecplotWidget->GetPropertyBounds(actor,"p");
+//                  /*std::vector(27016.1, 260651)
+//std::vector(25578.1, 262854)
+//std::vector(65005.8, 133857)
+//std::vector(82159.6, 85116.5)
+//std::vector(97717.7, 103720)
+//std::vector(63374.2, 141857)
+//std::vector(63374.2, 141857)
+//std::vector(58333.1, 203756)**/
+//              }
+//         //m_tecplotWidget->SetColorMapOn("p");//映射出来却变成了0-1.标题太大了
+//         m_tecplotWidget->ActorVisibilityOff("BLADE");
+//         m_tecplotWidget->SetColorMapOn("p");
+//         for(auto actor:actors){
+//          // m_tecplotWidget->ActorVisibilityOff(actor);
+//         }
+//       m_tecplotWidget->ActorVisibilityOn("HUB");
+//       m_tecplotWidget->SetColorLineOn();
       // m_tecplotWidget->SetColorLineOff();
 //         m_tecplotWidget->SetColorMapOn("Z");
 //         m_tecplotWidget->ActorVisibilityOff("HUB");
