@@ -568,6 +568,19 @@ public:
     QStringList RotateAndCopyActor(QString actorName, int copies,double angle, char axis = 'X');
 
     /**
+     * @brief TranslateAndCopyActor
+     * @param actorName,要平移复制的actor名称
+     * @param copies，复制份数
+     * @param dt，平移距离
+     * @param dirX，方向向量x方向
+     * @param dirY，方向向量y方向
+     * @param dirZ，方向向量z方向
+     * @return 复制生成的copies个actor名称
+     * @details 移动的距离单位和原始数据中的坐标单位相同。每个方向移动的距离为dirX*dt，dirY*dt,dirZ*dt
+     */
+    QStringList TranslateAndCopyActor(QString actorName, int copies, double dt, double dirX, double dirY, double dirZ);
+
+    /**
        * @brief 计算相对马赫数
        * @param actorName 需要进行计算的actor名称
        * @details 使用属性"ur", "vr", "wr"（相对速度分量）和"T"（温度）计算相对马赫数，结果以"Ma_rel"加入属性列表

@@ -19,18 +19,28 @@ Widget::Widget(QWidget *parent)
        //m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10005].dat)");
       // m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[10].dat)");
 
-       m_tecplotWidget->SetFileName(R"(E:\VTK\data\struct_[0]_[0].dat)");
+       //m_tecplotWidget->SetFileName(R"(E:\VTK\data\struct_[0]_[0].dat)");
+       m_tecplotWidget->SetFileName(R"(E:\VTK\data\test_ctn_[1000].dat)");
        //qInfo()<<m_tecplotWidget->GetPropertyList("FLUID");
-      m_tecplotWidget->SetColorMapOn("u");
+      m_tecplotWidget->SetColorMapOn("p");
        //m_tecplotWidget->ActorVisibilityOn()
       // m_tecplotWidget->SetFileName(R"(E:\VTK\data\flow_sst_[400].dat)");
-//       auto actors=m_tecplotWidget->GetActorList();
-//       qInfo()<<actors;
-//       for(auto actor:actors){
-//            m_tecplotWidget->ActorVisibilityOff(actor);
-//            //qInfo()<<m_tecplotWidget->GetPropertyBounds(actor,"p");
+       auto actors=m_tecplotWidget->GetActorList();
+       qInfo()<<actors;
+       for(auto actor:actors){
+            m_tecplotWidget->ActorVisibilityOff(actor);
+            //qInfo()<<m_tecplotWidget->GetPropertyBounds(actor,"p");
 
-//       }
+       }
+       qInfo()<<m_tecplotWidget->AddSliceWidget("FLUID");
+       qInfo()<<m_tecplotWidget->SliceByZPlane("Slice1",0.001);
+       qInfo()<<m_tecplotWidget->TranslateAndCopyActor("Slice1",3,0.005,0,0,1);
+       qInfo()<<m_tecplotWidget->GetPropertyList("Slice1_Translated_1");
+       qInfo()<<m_tecplotWidget->GetPropertyBounds("Slice1_Translated_1","Z");
+       //qInfo()<<m_tecplotWidget->GetPropertyBounds("Slice1_Translated_1","Z");
+       m_tecplotWidget->SetColorMapOn("Z");
+       //m_tecplotWidget->SetColorMapBounds()
+       //m_tecplotWidget->TranslateAndCopyActor()
       // m_tecplotWidget->ActorVisibilityOn("SHROUD");
        //m_tecplotWidget->ActorVisibilityOn("BLADE");
        //auto s1=m_tecplotWidget->ExtractS1("PA","PB","INLET","OUTLET","SHROUD","HUB","FLUID");

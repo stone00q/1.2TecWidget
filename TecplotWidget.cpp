@@ -2886,6 +2886,265 @@ QStringList TecplotWidget::RotateAndCopyActor(QString actorName, int copies,doub
     return resultNames;
 }
 
+///**********平移复制**************/
+//QStringList TecplotWidget::TranslateAndCopyActor(QString actorName, int copies, double dt, double dirX, double dirY, double dirZ) {
+//    QStringList resultNames;
+//    std::string baseName = actorName.toStdString();
+
+//    // 检查原始actor是否存在
+//    if (m_actorsList.find(baseName) == m_actorsList.end()) {
+//        qWarning() << "Actor not found:" << actorName;
+//        return resultNames;
+//    }
+
+//    // 标准化方向向量
+//    double length = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+//    if (length < 1e-6) {
+//        qWarning() << "Direction vector is too small";
+//        return resultNames;
+//    }
+
+//    // 计算单位方向向量
+//    double unitX = dirX / length;
+//    double unitY = dirY / length;
+//    double unitZ = dirZ / length;
+//    qInfo()<<"unitxyz:"<<unitX<<" "<<unitY<<" "<<unitZ;
+
+//    // 计算每次平移的实际位移
+//    double dx = dt * unitX;
+//    double dy = dt * unitY;
+//    double dz = dt * unitZ;
+//    qInfo()<<"dxyz"<<dx<<" "<<dy<<" "<<dz;
+
+//    vtkActor* originalActor = m_actorsList[baseName];
+//    vtkDataSet* originalData = vtkDataSet::SafeDownCast(originalActor->GetMapper()->GetInput());
+
+//    // 获取原始坐标数组（如果有）
+//    vtkPointData* origPD = originalData->GetPointData();
+//    bool hasX = origPD->HasArray("X") || origPD->HasArray("x");
+//    bool hasY = origPD->HasArray("Y") || origPD->HasArray("y");
+//    bool hasZ = origPD->HasArray("Z") || origPD->HasArray("z");
+//    // 创建copies个副本
+//    for (int i = 0; i < copies; ++i) {
+//        // 计算当前副本的位移
+//        double curDx = dx * (i + 1);
+//        double curDy = dy * (i + 1);
+//        double curDz = dz * (i + 1);
+//        qInfo()<<"Num"<<i+1<<"  curDxyz:"<<curDx<<" "<<curDy<<" "<<curDz;
+
+//        // 创建平移变换
+//        auto transform = vtkSmartPointer<vtkTransform>::New();
+//        transform->Translate(curDx, curDy, curDz);
+
+//        // 应用变换
+//        vtkSmartPointer<vtkTransformFilter> transformFilter = vtkSmartPointer<vtkTransformFilter>::New();
+//        transformFilter->SetInputData(originalData);
+//        transformFilter->SetTransform(transform);
+//        transformFilter->Update();
+
+//        // 获取变换后的数据集
+//        vtkSmartPointer<vtkDataSet> transformedData = transformFilter->GetOutput();
+
+//        // 创建新actor
+//        vtkSmartPointer<vtkDataSetMapper> newMapper = vtkSmartPointer<vtkDataSetMapper>::New();
+//        newMapper->SetInputConnection(transformFilter->GetOutputPort());
+
+//        vtkSmartPointer<vtkActor> newActor = vtkSmartPointer<vtkActor>::New();
+//        newActor->SetMapper(newMapper);
+
+//        // 更新属性中的坐标数组（如果有）
+//        vtkPointData* pd = newMapper->GetInput()->GetPointData();
+//        qInfo()<<"new actor z:"<<pd->GetArray("Z")->GetComponent(0,0);
+////        if (pd) {
+////            // 更新X坐标数组
+////            if (hasX&&curDx!=0) {
+////                vtkDataArray* xArray = pd->GetArray("X");
+////                if (!xArray) xArray = pd->GetArray("x");
+////                if (xArray) {
+////                    qInfo()<<xArray->GetComponent(0,0);
+////                    for (vtkIdType j = 0; j < xArray->GetNumberOfTuples(); j++) {
+////                        double value = xArray->GetComponent(j, 0);
+////                        xArray->SetComponent(j, 0, value + curDx);
+////                    }
+////                }
+////            }
+////            // 更新Y坐标数组
+////            if (hasY&&curDy!=0) {
+////                vtkDataArray* yArray = pd->GetArray("Y");
+////                if (!yArray) yArray = pd->GetArray("y");
+////                if (yArray) {
+////                    for (vtkIdType j = 0; j < yArray->GetNumberOfTuples(); j++) {
+////                        double value = yArray->GetComponent(j, 0);
+////                        yArray->SetComponent(j, 0, value + curDy);
+////                    }
+////                }
+////             }
+////              // 更新Z坐标数组
+////            if (hasZ&&curDz!=0) {
+////                 vtkDataArray* zArray = pd->GetArray("Z");
+////                 if (!zArray) zArray = pd->GetArray("z");
+////                 if (zArray) {
+////                     qInfo()<<"num "<<i+1<<"  z:"<<zArray->GetComponent(0,0);
+////                     for (vtkIdType j = 0; j < zArray->GetNumberOfTuples(); j++) {
+////                         double value = zArray->GetComponent(j, 0);
+////                         zArray->SetComponent(j, 0, value + curDz);
+////                     }
+////                 }
+////            }
+
+////       }
+
+//        // 生成唯一名称
+//        std::string newName = baseName + "_Translated_" + std::to_string(i + 1);
+//        QString qNewName = QString::fromStdString(newName);
+
+//        // 添加到系统
+//        m_actorsList[newName] = newActor;
+//        m_actorsStatus[newName] = true;
+//        m_renderer->AddActor(newActor);
+//        resultNames << qNewName;
+//    }
+
+//    m_renderWindow->Render();
+//    return resultNames;
+//}
+
+QStringList TecplotWidget::TranslateAndCopyActor(QString actorName, int copies, double dt, double dirX, double dirY, double dirZ) {
+    QStringList resultNames;
+    std::string baseName = actorName.toStdString();
+
+    // 检查原始actor是否存在
+    if (m_actorsList.find(baseName) == m_actorsList.end()) {
+        qWarning() << "Actor not found:" << actorName;
+        return resultNames;
+    }
+
+//    // 标准化方向向量
+//    double length = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+//    if (length < 1e-6) {
+//        qWarning() << "Direction vector is too small";
+//        return resultNames;
+//    }
+
+//    // 计算单位方向向量
+//    double unitX = dirX / length;
+//    double unitY = dirY / length;
+//    double unitZ = dirZ / length;
+//    qInfo() << "unitxyz:" << unitX << " " << unitY << " " << unitZ;
+
+//    // 计算每次平移的实际位移
+//    double dx = dt * unitX;
+//    double dy = dt * unitY;
+//    double dz = dt * unitZ;
+//    qInfo() << "dxyz" << dx << " " << dy << " " << dz;
+
+    double dx=dt*dirX;
+    double dy=dt*dirY;
+    double dz=dt*dirZ;
+
+    vtkActor* originalActor = m_actorsList[baseName];
+    vtkDataSet* originalData = vtkDataSet::SafeDownCast(originalActor->GetMapper()->GetInput());
+
+    // 获取原始坐标数组（如果有）
+    vtkPointData* origPD = originalData->GetPointData();
+    bool hasX = origPD->HasArray("X") || origPD->HasArray("x");
+    bool hasY = origPD->HasArray("Y") || origPD->HasArray("y");
+    bool hasZ = origPD->HasArray("Z") || origPD->HasArray("z");
+
+    // 创建基础数据的深拷贝
+    vtkSmartPointer<vtkDataSet> baseData;
+    baseData.TakeReference(originalData->NewInstance());
+    baseData->DeepCopy(originalData);
+
+    // 创建copies个副本
+    for (int i = 0; i < copies; ++i) {
+        // 计算当前副本的位移
+        double curDx = dx * (i + 1);
+        double curDy = dy * (i + 1);
+        double curDz = dz * (i + 1);
+        //qInfo() << "Num" << i+1 << "  curDxyz:" << curDx << " " << curDy << " " << curDz;
+
+        // 创建当前数据的深拷贝
+        vtkSmartPointer<vtkDataSet> currentData;
+        currentData.TakeReference(baseData->NewInstance());
+        currentData->DeepCopy(baseData);
+
+        // 更新坐标数组（如果有）
+        vtkPointData* pd = currentData->GetPointData();
+
+        // 更新X坐标数组
+        if (hasX && curDx != 0) {
+            vtkDataArray* xArray = pd->GetArray("X");
+            if (!xArray) xArray = pd->GetArray("x");
+            if (xArray) {
+                for (vtkIdType j = 0; j < xArray->GetNumberOfTuples(); j++) {
+                    double value = xArray->GetComponent(j, 0);
+                    xArray->SetComponent(j, 0, value + curDx);
+                }
+            }
+        }
+
+        // 更新Y坐标数组
+        if (hasY && curDy != 0) {
+            vtkDataArray* yArray = pd->GetArray("Y");
+            if (!yArray) yArray = pd->GetArray("y");
+            if (yArray) {
+                for (vtkIdType j = 0; j < yArray->GetNumberOfTuples(); j++) {
+                    double value = yArray->GetComponent(j, 0);
+                    yArray->SetComponent(j, 0, value + curDy);
+                }
+            }
+        }
+
+        // 更新Z坐标数组
+        if (hasZ && curDz != 0) {
+            vtkDataArray* zArray = pd->GetArray("Z");
+            if (!zArray) zArray = pd->GetArray("z");
+            if (zArray) {
+                //qInfo() << "num " << i+1 << "  z before:" << zArray->GetComponent(0,0);
+                for (vtkIdType j = 0; j < zArray->GetNumberOfTuples(); j++) {
+                    double value = zArray->GetComponent(j, 0);
+                    zArray->SetComponent(j, 0, value + curDz);
+                }
+                //qInfo() << "num " << i+1 << "  z after:" << zArray->GetComponent(0,0);
+            }
+        }
+
+        // 创建平移变换
+        auto transform = vtkSmartPointer<vtkTransform>::New();
+        transform->Translate(curDx, curDy, curDz);
+
+        // 应用变换
+        vtkSmartPointer<vtkTransformFilter> transformFilter = vtkSmartPointer<vtkTransformFilter>::New();
+        transformFilter->SetInputData(currentData);
+        transformFilter->SetTransform(transform);
+        transformFilter->Update();
+
+        // 获取变换后的数据集
+        vtkSmartPointer<vtkDataSet> transformedData = transformFilter->GetOutput();
+
+        // 创建新actor
+        vtkSmartPointer<vtkDataSetMapper> newMapper = vtkSmartPointer<vtkDataSetMapper>::New();
+        newMapper->SetInputConnection(transformFilter->GetOutputPort());
+
+        vtkSmartPointer<vtkActor> newActor = vtkSmartPointer<vtkActor>::New();
+        newActor->SetMapper(newMapper);
+        newActor->GetProperty()->DeepCopy(originalActor->GetProperty());
+
+        // 生成唯一名称
+        std::string newName = baseName + "_Translated_" + std::to_string(i + 1);
+        QString qNewName = QString::fromStdString(newName);
+
+        // 添加到系统
+        m_actorsList[newName] = newActor;
+        m_actorsStatus[newName] = true;
+        m_renderer->AddActor(newActor);
+        resultNames << qNewName;
+    }
+
+    m_renderWindow->Render();
+    return resultNames;
+}
 vtkSmartPointer<vtkTransform> TecplotWidget::CreateRotationTransform(char axis, double angle) {
     auto transform = vtkSmartPointer<vtkTransform>::New();
 
