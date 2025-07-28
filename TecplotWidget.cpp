@@ -1291,7 +1291,7 @@ bool TecplotWidget::ActorVisibilityOn(QString actorName)
     {
         return false;
     }
-    if(actorName.contains("Slice"))
+    if(actorName.contains("Slice")&&this->m_sliceWigetList.count(name)!=0)
     {
         // 检查widget是否之前是启用的
                if(this->m_sliceWidgetVisibilityStatus[name])
@@ -1330,7 +1330,7 @@ bool TecplotWidget::ActorVisibilityOff(QString actorName)
     {
         return false;
     }
-    if(actorName.contains("Slice"))
+    if(actorName.contains("Slice")&&this->m_sliceWigetList.count(name)!=0)
     {
         this->m_sliceWigetList[name]->EnabledOff();
     }
