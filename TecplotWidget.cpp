@@ -3391,7 +3391,86 @@ void TecplotWidget::CalculateEntropy(QString actorName)
     dataSet->GetPointData()->AddArray(entropyArray);
    // qInfo() << "Added Entropy array to" << actorName;
 }
+/**************计算公式*********/
+bool TecplotWidget::CalculateProperty(QString actorName, QString formula, QString resultName) {
+    std::string name = actorName.toStdString();
 
+    // 检查actor是否存在
+    if (m_actorsList.find(name) == m_actorsList.end()) {
+        qWarning() << "Actor not found:" << actorName;
+        return false;
+    }
+
+    vtkActor* actor = m_actorsList[name];
+    vtkMapper* mapper = actor->GetMapper();
+    if (!mapper) {
+        qWarning() << "Mapper not found for actor:" << actorName;
+        return false;
+    }
+
+    vtkDataSet* dataSet = vtkDataSet::SafeDownCast(mapper->GetInput());
+    if (!dataSet) {
+        qWarning() << "Data set not found for actor:" << actorName;
+        return false;
+    }
+
+    // 创建计算器
+    vtkSmartPointer<vtkArrayCalculator> calculator = vtkSmartPointer<vtkArrayCalculator>::New();
+    calculator->SetInputData(dataSet);
+    calculator->SetAttributeTypeToPointData();
+
+    // 添加所有标量数组作为变量
+    vtkPointData* pd = dataSet->GetPointData();
+    for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
+        vtkDataArray* array = pd->GetArray(i);
+        if (!array) continue;
+
+        const char* arrayName = array->GetName();
+        if (!arrayName) continue;
+
+        // 跳过非标量数组
+        if (array->GetNumberOfComponents() != 1) {
+            // 如果是向量，添加各分量
+            if (array->GetNumberOfComponents() == 3) {
+                calculator->AddVectorArrayName(arrayName);
+                // 添加分量作为独立变量
+                calculator->AddScalarVariable((std::string(arrayName) + "_x").c_str(), arrayName, 0);
+                calculator->AddScalarVariable((std::string(arrayName) + "_y").c_str(), arrayName, 1);
+                calculator->AddScalarVariable((std::string(arrayName) + "_z").c_str(), arrayName, 2);
+            }
+            continue;
+        }
+
+        // 添加标量变量
+        calculator->AddScalarArrayName(arrayName);
+    }
+
+
+    // 设置计算公式和结果名称
+    calculator->SetFunction(formula.toStdString().c_str());
+    calculator->SetResultArrayName(resultName.toStdString().c_str());
+
+    // 执行计算
+    calculator->Update();
+
+    // 获取计算结果
+    vtkDataSet* output = vtkDataSet::SafeDownCast(calculator->GetOutput());
+    vtkDataArray* resultArray = output->GetPointData()->GetArray(resultName.toStdString().c_str());
+
+    if (!resultArray) {
+        qWarning() << "Failed to calculate property:" << resultName << "for actor:" << actorName;
+        return false;
+    }
+
+    // 将计算结果添加到原始数据集的点数据中
+    pd->AddArray(resultArray);
+
+    // 触发渲染更新
+    dataSet->Modified();
+    m_renderWindow->Render();
+
+    return true;
+}
 /***************写出数据************************/
 bool TecplotWidget::SaveSliceData(QString sliceName, QString filePath,int format=1)
 {

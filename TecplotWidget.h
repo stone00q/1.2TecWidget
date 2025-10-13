@@ -596,6 +596,16 @@ public:
       void CalculateEntropy(QString actorName);
 
       /**
+       * @brief CalculateProperty对指定actor的属性数据进行公式计算
+       * @param actorName,actor名称
+       * @param formula计算公式（例如 "u^1.5/w"），公式中的变量名必须与属性名称完全匹配
+       * @param resultName计算结果属性名称
+       * @return bool  是否成功执行计算
+       * @details 注意，当输入公式出中出现非propertyname的变量名的话，程序会崩溃，这是由vtk管线决定的。推荐写入表达式的时候，让选择每个每个变量和操作符，类似计算器按钮。然后保存为字符串调用该函数
+       * 其次对于常量比如e和pi，公式中需以具体数值表示，如3.1415926*T
+       */
+      bool CalculateProperty(QString actorName, QString formula, QString resultName);
+      /**
        * @brief SaveSliceData保存切片数据到文件
        * @param sliceName切片名称（由AddSliceWidget返回的名称）
        * @param filePath保存路径（含文件名，但不含后缀，后缀是根据format自动加上的）
@@ -613,7 +623,6 @@ public:
 //       * @return bool，是否成功写出
 //       */
 //      bool SaveIntersectionLineData(QString actorName1, QString actorName2, QString filePath);
-
 
 private:
 
